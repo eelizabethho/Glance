@@ -74,7 +74,7 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | AI | **Local MCP only**, for Claude Desktop. ChatGPT desktop is included if it supports local servers (§8.3). |
 | Folder | Code and data both go in `~/workspace/notes-reminder`. Data is in `data/`, which is **gitignored**. |
 | Repo | Private GitHub repo `notes-reminder`. |
-| Reviews | **Claude merges its own PRs when CI is green.** The owner looks in whenever they want. |
+| Reviews | **No PRs.** Each builder agent works on its own branch. A verifier agent checks the branch and merges it to `main` when it passes (ADR 0005). The owner looks in whenever they want. |
 | Threads | **The build Claude decides** using §9.1 and tells the owner which option it picked. |
 
 ---
@@ -218,17 +218,21 @@ notes-reminder/
 ├─ data/                       # gitignored; todo.md lives here
 ├─ docs/PLAN.md · docs/ARCHITECTURE.md · docs/decisions/ · docs/reference/
 ├─ scripts/                    # build.sh, install-mcp.sh, screenshot.sh
-├─ .github/workflows/ci.yml · .github/pull_request_template.md
+├─ .github/workflows/ci.yml
 ├─ .swiftlint.yml · .swift-format
 ├─ CLAUDE.md
 └─ README.md
 ```
 
-### 6.3 Branches, PRs, merging
-- `main` is protected: CI must pass, and history is linear.
-- Use one branch per task: `feat/core-parser`, `feat/mcp-tools`, `feat/ball-panel`, `feat/list-ui`, `feat/reminders`, `chore/ci`, `fix/…`.
-- Use one PR per GitHub issue, and keep it small (around 400 changed lines or less where possible). The description should cover what changed, how it was verified (with screenshots for UI), and `Closes #N`.
-- **Claude merges its own PR once CI is green**, using **"Rebase and merge"** (enable auto-merge). This keeps each meaningful commit on `main`, and the owner doesn't need to approve.
+### 6.3 Branches and merging (ADR 0005)
+- History on `main` is linear. CI runs on every push to `main` as a backstop.
+- Each builder agent works on its own branch in its own worktree: `feat/mcp-tools`, `feat/ball-panel`, `feat/list-ui`, `feat/reminders`, `fix/…`. One branch per GitHub issue, kept small (around 400 changed lines or less).
+- There are no pull requests. When a builder finishes, a **verifier agent** reviews the branch:
+  1. Rebase it onto the latest `main`.
+  2. Run `scripts/check.sh`. For UI, look at light and dark screenshots.
+  3. Review the diff against `docs/PLAN.md` and the issue, with `/ponytail-review`.
+  4. On pass, fast-forward `main`, push it, and close the issue with a comment saying what was verified. On fail, report the findings, and a fresh builder fixes the branch.
+- The verifier never fixes code itself, and a builder never merges its own branch.
 
 ### 6.4 Commits
 - Use Conventional Commits: `feat(core): parse due time`, `fix(ball): stay above fullscreen apps`, `test(core): round-trip fixtures`, `docs: ADR 0003 non-sandboxed`.
@@ -317,7 +321,7 @@ T0 Foundation ──► T1 MCP server ──┐
 ### T0: Foundation
 - [ ] Folder, git, `.gitignore` (confirm `data/` is ignored), private repo, git identity (§6.1)
 - [ ] `Package.swift`, `project.yml` (XcodeGen), an empty SwiftUI app that launches, SwiftLint and swift-format
-- [ ] `CLAUDE.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`, ADRs 0001 (SwiftUI) / 0002 (non-sandboxed, data path) / 0003 (single Swift codebase), PR template, CI
+- [ ] `CLAUDE.md`, `docs/PLAN.md`, `docs/ARCHITECTURE.md`, ADRs 0001 (SwiftUI) / 0002 (non-sandboxed, data path) / 0003 (single Swift codebase), CI
 - [ ] **GlanceCore**, test-first: models, parser, serializer, ops (including suggest, dedupe, accept, dismiss), counts, FileStore with atomic writes and a watcher
 - [ ] Freeze the contract (§5) and create milestones, labels, and issues
 

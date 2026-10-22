@@ -37,17 +37,16 @@ Native macOS 26 SwiftUI to-do widget. `docs/PLAN.md` is the source of truth. Rea
 
 ## Git
 
-- One branch and one PR per issue: `feat/…`, `fix/…`, `chore/…`, `docs/…`. Keep a PR near 400 changed lines or fewer.
+- No pull requests. Each builder agent works on its own branch in its own worktree: `feat/…`, `fix/…`, `chore/…`, `docs/…`. One branch per issue, near 400 changed lines or fewer.
+- A verifier agent merges, never the builder. It rebases the branch onto `main`, runs `scripts/check.sh`, reviews the diff with `/ponytail-review` (plus light and dark screenshots for UI), then fast-forwards `main`, pushes, and closes the issue. See ADR 0005.
 - Conventional Commits, imperative subject of 72 characters or fewer. Each commit is one logical change that builds and passes tests. No filler, empty, or backdated commits.
-- The PR body covers what changed, how you verified it (screenshots for UI, light and dark), and `Closes #N`.
-- Merge your own PR with "Rebase and merge" once CI is green. Push at the end of every session.
-- No AI attribution lines in commits or PRs. The owner is the sole author.
+- Commit messages and issue comments carry no AI attribution lines. The owner is the sole author.
 
 ## Skills
 
 Use the `ponytail` and `pstack` plugins on every thread.
 
-- **ponytail** is always on at level full: the smallest change that fully solves the task. Run `/ponytail-review` on each PR before you enable auto-merge. Run `/ponytail-debt` at the end of each thread to list `shortcut:` comments.
+- **ponytail** is always on at level full: the smallest change that fully solves the task. The verifier runs `/ponytail-review` on each branch before it merges. Run `/ponytail-debt` at the end of each thread to list `shortcut:` comments.
 - **pstack** is the working method. Most pstack skills refuse the Skill tool, so read `~/.claude/plugins/cache/cursor-plugins/pstack/<version>/skills/<name>/SKILL.md` and follow it. Read `docs/harness/claude-code.md` in that folder once per session first.
   - `poteto-mode` for the overall style and playbooks: Feature for each thread, Bug fix for defects, Opening a PR at the end.
   - `tdd` for GlanceCore and glance-mcp. Fixtures and failing tests come first.
@@ -56,4 +55,4 @@ Use the `ponytail` and `pstack` plugins on every thread.
   - `technical-writing` for docs, ADRs, PR descriptions, and commit messages.
   - `principle-prove-it-works` before you mark anything done.
 - If a skill conflicts with `docs/PLAN.md` §2, §2 wins. Tell the owner about the conflict.
-- Known conflict: pstack's shipping playbook wants an independent review before merge. §2 says merge on green CI. Merge on green, after your own `/ponytail-review`.
+- pstack's shipping playbook wants an independent review before merge. The verifier agent is that review.

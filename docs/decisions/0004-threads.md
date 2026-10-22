@@ -11,9 +11,9 @@ Option C.
 - **T1 (MCP)** goes to a subagent right away. It touches only `Sources/glance-mcp/`, its tests, and `scripts/install-mcp.sh`. GlanceCore is frozen, so nothing it needs can move under it.
 - **T2 (ball and window) and T3 (list panel)** both live in `App/Glance/` and share `AppState`. The lead first lands a small app-skeleton PR that defines `AppState` and the folder split (`Ball/`, `Panel/`, `Settings/`). After that, T2 and T3 run as two subagents. Each one edits only its own folder.
 - **T4 (live sync and reminders)** wires `FileStore.changes` into `AppState`, so it touches both halves. The lead does it after T2 and T3 merge.
-- The lead reviews every subagent diff, runs `/ponytail-review`, and merges in dependency order.
+- A verifier agent reviews and merges each branch in dependency order (ADR 0005).
 - No A2A. §9.1 rules it out, and git branches plus PRs already coordinate the agents.
 
 ## Consequences
 - XcodeGen picks up new files by folder, so parallel threads rarely touch `project.yml`. When they do, the conflict is a few lines of YAML.
-- Merging is the bottleneck, not writing code. Stacked PRs only work if the lead can merge green PRs as they land, which needs the owner to allow `gh pr merge`.
+- Builders never wait on each other's PRs. The verifier merges each branch to `main` as soon as it passes.
