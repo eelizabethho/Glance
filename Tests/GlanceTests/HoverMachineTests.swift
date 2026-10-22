@@ -10,6 +10,18 @@ private func expanded() -> HoverMachine {
 }
 
 struct HoverMachineTests {
+  @Test func summonExpandsAtOnceFromCollapsedOrFaded() {
+    var machine = HoverMachine()
+    machine.send(.summon)
+    #expect(machine.state == .expanded)
+    machine.send(.timerFired)  // nothing holds it yet, so it fades
+    #expect(machine.state == .faded)
+    machine.send(.summon)
+    #expect(machine.state == .expanded)
+    machine.send(.focus(true))
+    #expect(machine.timer == nil)
+  }
+
   @Test func enterOpensAfterTheEnterDelay() {
     var machine = HoverMachine()
     machine.send(.enter)

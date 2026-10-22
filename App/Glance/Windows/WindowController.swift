@@ -38,7 +38,7 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
 }
 
 /// Owns the ball and list panels and runs `HoverMachine` between them.
-final class WindowController: NSObject, NSWindowDelegate {
+@Observable final class WindowController: NSObject, NSWindowDelegate {
   /// Invisible hit area around each panel's content, so crossing from ball to list never leaves.
   static let buffer: CGFloat = 6
   static let cornerKey = "ballCorner"
@@ -54,6 +54,7 @@ final class WindowController: NSObject, NSWindowDelegate {
   private var timerTask: Task<Void, Never>?
   private var overBall = false
   private var overList = false
+  private(set) var hidden = false
 
   init(state: AppState, defaults: UserDefaults = .standard) {
     defaults.register(defaults: [Self.fadeOpacityKey: 0.3, Self.fadeDelayKey: 0.6])
@@ -126,6 +127,26 @@ final class WindowController: NSObject, NSWindowDelegate {
     ball.setFrame(
       CGRect(origin: origin, size: ball.frame.size), display: true, animate: !Self.reduceMotion)
     placeList()
+  }
+
+  /// Show or hide both panels. The list comes back only if hover had it open.
+  func toggleVisible() {
+    hidden.toggle()
+    if hidden {
+      ball.orderOut(nil)
+      list.orderOut(nil)
+    } else {
+      ball.orderFrontRegardless()
+      if machine.state != .collapsed { list.orderFront(nil) }
+    }
+  }
+
+  /// Opens the list now and tells the add field to take focus.
+  func summon() {
+    if hidden { toggleVisible() }
+    send(.summon)
+    list.makeKey()
+    NotificationCenter.default.post(name: Notification.Name("GlanceFocusAddField"), object: nil)
   }
 
   // MARK: Hover

@@ -4,6 +4,8 @@ struct HoverMachine: Equatable {
   enum State { case collapsed, expanded, faded }
   enum Event: Equatable {
     case enter, leave
+    /// Expand now (the global shortcut), skipping the enter delay.
+    case summon
     case focus(Bool)
     case timerFired
   }
@@ -30,6 +32,7 @@ struct HoverMachine: Equatable {
     switch event {
     case .enter: inside = true
     case .leave: inside = false
+    case .summon: state = .expanded
     case .focus(let isFocused): focused = isFocused
     case .timerFired: if let timer { state = timer.target }
     }
