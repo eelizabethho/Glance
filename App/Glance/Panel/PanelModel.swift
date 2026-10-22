@@ -119,6 +119,11 @@ extension Array where Element: Equatable {
   /// Hex colour of each category's dot, keyed by name.
   var colors: [String: String] { didSet { save(colors, "glance.panel.categoryColors") } }
 
+  /// Where the add field puts new tasks; nil until the first pick.
+  var addCategory: String? {
+    didSet { if addCategory != oldValue { save(addCategory, "glance.panel.addCategory") } }
+  }
+
   @ObservationIgnored private let defaults: UserDefaults
 
   init(defaults: UserDefaults = .standard) {
@@ -130,6 +135,7 @@ extension Array where Element: Equatable {
     collapsed = load("glance.panel.collapsedCategories") ?? []
     colors = load("glance.panel.categoryColors") ?? [:]
     selectedTab = load("glance.panel.selectedTab")
+    addCategory = load("glance.panel.addCategory")
   }
 
   /// The selected tab, or the first visible one when it was hidden or deleted.
@@ -160,4 +166,35 @@ func linkified(_ notes: String) -> AttributedString {
     if let range = Range(match.range, in: result) { result[range].link = match.url }
   }
   return result
+}
+
+/// Strips a trailing `ddl M/D [HH:mm]` or `📅 YYYY-MM-DD [HH:mm]` and returns it as the due date.
+/// A token that isn't a real date or time stays in the text.
+func parseQuickAdd(_ input: String, now: Date, calendar: Calendar) -> (text: String, due: DueDate?)
+{
+  let today = CalendarDay(now, calendar: calendar)
+  let day: CalendarDay?
+  let hour: Substring?
+  let minute: Substring?
+  let start: String.Index
+  if let hit = input.firstMatch(of: /\s+ddl (\d{1,2})\/(\d{1,2})(?: (\d{1,2}):(\d{2}))?$/) {
+    let (month, dom) = (Int(hit.1) ?? 0, Int(hit.2) ?? 0)
+    // Next occurrence on or after today.
+    day =
+      CalendarDay(year: today.year, month: month, day: dom).flatMap { $0 >= today ? $0 : nil }
+      ?? CalendarDay(year: today.year + 1, month: month, day: dom)
+    (hour, minute, start) = (hit.3, hit.4, hit.range.lowerBound)
+  } else if let hit = input.firstMatch(of: /\s+📅 (\d{4})-(\d{2})-(\d{2})(?: (\d{1,2}):(\d{2}))?$/) {
+    day = CalendarDay(year: Int(hit.1) ?? 0, month: Int(hit.2) ?? 0, day: Int(hit.3) ?? 0)
+    (hour, minute, start) = (hit.4, hit.5, hit.range.lowerBound)
+  } else {
+    return (input, nil)
+  }
+  let time = hour.flatMap { hrs in
+    minute.flatMap { TimeOfDay(hour: Int(hrs) ?? 0, minute: Int($0) ?? 0) }
+  }
+  guard let day, time != nil || hour == nil else { return (input, nil) }
+  return (
+    String(input[..<start]).trimmingCharacters(in: .whitespaces), DueDate(day: day, time: time)
+  )
 }

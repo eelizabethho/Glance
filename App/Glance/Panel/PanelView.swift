@@ -7,11 +7,15 @@ extension Font {
   }
 }
 
+private let focusAddField = Notification.Name("GlanceFocusAddField")
+
 /// The list: date header, tabs, then the active tab's tasks grouped by category.
 struct PanelView: View {
   let state: AppState
   @State private var prefs: PanelPrefs
   @State private var showingSettings = false
+  @State private var newText = ""
+  @FocusState private var addFocused: Bool
 
   init(state: AppState, prefs: PanelPrefs = PanelPrefs()) {
     self.state = state
@@ -40,8 +44,51 @@ struct PanelView: View {
       if let error = state.lastError {
         Text(String(describing: error)).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)
       }
+      addField
     }
     .padding(16)
+    .onReceive(NotificationCenter.default.publisher(for: focusAddField)) { _ in addFocused = true }
+  }
+
+  /// The last-used category, or the first regular one when it is gone.
+  private var addCategory: String? {
+    let names = regularCategories.map(\.name)
+    return names.first { $0 == prefs.addCategory } ?? names.first
+  }
+
+  private var addField: some View {
+    HStack(spacing: 6) {
+      TextField("Add new todo", text: $newText)
+        .textFieldStyle(.plain)
+        .font(.mono(13))
+        .focused($addFocused)
+        .onSubmit { submit() }
+      Menu(addCategory ?? "") {
+        ForEach(regularCategories, id: \.name) { category in
+          Button(category.name) { prefs.addCategory = category.name }
+        }
+      }
+      .menuStyle(.borderlessButton)
+      .fixedSize()
+      .font(.mono(12))
+      .accessibilityLabel("Category for new todo")
+      Button {
+        submit()
+      } label: {
+        Image(systemName: "plus").font(.mono(13))
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Add todo")
+    }
+  }
+
+  private func submit() {
+    let parsed = parseQuickAdd(newText, now: .now, calendar: .current)
+    state.perform { try $0.add(parsed.text, category: addCategory, due: parsed.due) }
+    if state.lastError == nil {
+      newText = ""
+      addFocused = true
+    }
   }
 
   private var regularCategories: [GlanceCore.Category] {
