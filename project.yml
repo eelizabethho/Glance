@@ -21,6 +21,14 @@ targets:
         LSUIElement: true # no Dock icon; the ball is the UI
         # Xcode copies Resources/Fonts/*.ttf flat into Contents/Resources.
         ATSApplicationFontsPath: .
+    postBuildScripts:
+      - name: Embed glance-mcp
+        basedOnDependencyAnalysis: false
+        script: |
+          cd "$SRCROOT"
+          CONF=$( [ "$CONFIGURATION" = "Release" ] && echo release || echo debug )
+          xcrun swift build -c "$CONF" --product glance-mcp
+          cp "$(xcrun swift build -c "$CONF" --show-bin-path)/glance-mcp" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/glance-mcp"
     settings:
       base:
         SWIFT_VERSION: "6.0"
