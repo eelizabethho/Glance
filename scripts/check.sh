@@ -8,6 +8,8 @@ if [ -n "$(git ls-files data)" ]; then
   exit 1
 fi
 
+/usr/bin/python3 -I scripts/merge_mcp_config.py --self-test
+
 swiftlint --strict --quiet
 swift format lint --strict -r Sources Tests App Package.swift
 swift build
