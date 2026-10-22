@@ -230,6 +230,28 @@ private func assertUnknownLinesKept(_ text: String) {
   assertUnknownLinesKept(store.contents)
 }
 
+@Test func `update_task keeps due and notes it was not given`() throws {
+  let store = try Fixture()
+  _ = try store.call("update_task", ["id": "life/dentist#0", "notes": "bring insurance card"])
+  _ = try store.call("update_task", ["id": "life/dentist#0", "text": "dentist checkup"])
+  #expect(
+    store.contents.contains("- [ ] dentist checkup 📅 2026-10-22 14:30\n  > bring insurance card"))
+  _ = try store.call("update_task", ["id": "life/dentist checkup#0", "category": "work"])
+  #expect(
+    store.contents.contains("- [ ] dentist checkup 📅 2026-10-22 14:30\n  > bring insurance card"))
+}
+
+@Test func `update_task cannot move a suggestion out of suggested`() throws {
+  let store = try Fixture()
+  #expect(
+    try store.error("update_task", ["id": "suggested/book friday dinner#0", "category": "life"])
+      == "Suggestions can only be accepted in the Glance app.")
+  #expect(store.contents == seed)
+  let edited = try store.call(
+    "update_task", ["id": "suggested/book friday dinner#0", "text": "book saturday dinner"])
+  #expect(edited.objectValue?["suggested"] == true)
+}
+
 @Test func `update_task rejects an unknown id, status, or category`() throws {
   let store = try Fixture()
   #expect(try store.error("update_task", ["id": "work/nope#0"]).contains("work/nope#0"))

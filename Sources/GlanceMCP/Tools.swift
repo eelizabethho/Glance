@@ -102,9 +102,14 @@ public enum GlanceTools {
       let status = try args.string("status").map(parseStatus)
       let category = try args.string("category")
       // Outer nil: leave alone. Inner nil: clear.
-      let due: DueDate?? = args.has("due") ? try parseDue(args.string("due"), field: "due") : nil
-      let notes: String?? = args.has("notes") ? try args.string("notes") : nil
+      // A bare `nil` in the ternary becomes `.some(nil)` and clears the field, so spell out `.none`.
+      let due: DueDate?? =
+        args.has("due") ? .some(try parseDue(args.string("due"), field: "due")) : .none
+      let notes: String?? = args.has("notes") ? .some(try args.string("notes")) : .none
       return try store.write { doc in
+        if category != nil, doc.task(id)?.suggestion != nil {
+          throw ToolError("Suggestions can only be accepted in the Glance app.")
+        }
         var id = try doc.update(id) { task in
           if let text { task.text = text }
           if let due { task.due = due }
