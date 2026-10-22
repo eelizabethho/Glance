@@ -59,6 +59,9 @@ struct CategorySection: View {
         }
       }
       .contextMenu { menu }
+      .dropDestination(for: String.self) { items, _ in
+        dropTask(items, on: state, category: name, before: nil)
+      }
       .confirmationDialog(
         deleteCategoryTitle(name, in: state.document), isPresented: $confirmingDelete
       ) {
@@ -103,11 +106,25 @@ struct CategorySection: View {
   }
 }
 
+/// Moves the dropped task into `category`: before `target`, or to the end when there is none.
+func dropTask(_ items: [String], on state: AppState, category: String, before target: TaskID?)
+  -> Bool
+{
+  let id = TaskID(rawValue: items.first ?? "")
+  guard id != target, state.document.task(id) != nil else { return false }
+  let index = target.flatMap { target in
+    state.document.categories.first { $0.name == category }?.tasks.firstIndex { $0.id == target }
+  }
+  state.perform { try $0.move(id, to: category, at: index) }
+  return true
+}
+
 struct TaskRow: View {
   let state: AppState
   let task: GlanceTask
   @State private var draft: String?
   @State private var editingDue = false
+  @State private var showingNotes = false
   @FocusState private var fieldFocused: Bool
 
   private var symbol: String {
@@ -120,6 +137,28 @@ struct TaskRow: View {
   }
 
   var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      row
+      if showingNotes { NotesArea(state: state, task: task) }
+    }
+    .draggable(task.id.rawValue)
+    .dropDestination(for: String.self) { items, _ in
+      dropTask(items, on: state, category: task.category, before: task.id)
+    }
+    .contextMenu {
+      Button("Edit") { draft = task.text }
+      Picker("Status", selection: Binding(get: { task.status }, set: { setStatus($0) })) {
+        ForEach(TaskStatus.allCases, id: \.self) { Text($0.title).tag($0) }
+      }
+      Button(task.due == nil ? "Set Due Date…" : "Change Due Date…") { editingDue = true }
+      if task.due != nil { Button("Clear Due Date") { setDue(nil) } }
+      Divider()
+      Button("Delete", role: .destructive) { state.perform { try $0.remove(task.id) } }
+    }
+    .popover(isPresented: $editingDue) { DueEditor(due: task.due, save: setDue) }
+  }
+
+  private var row: some View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
       Button {
         setStatus(task.status.toggled)
@@ -138,27 +177,24 @@ struct TaskRow: View {
           .onExitCommand { self.draft = nil }
           .onAppear { fieldFocused = true }
       } else {
-        Text(dueLabel(task))
-          .font(.mono(13))
-          .strikethrough(task.status == .cancelled)
-          .foregroundStyle(task.status == .todo || task.status == .pending ? .primary : .secondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .contentShape(Rectangle())
-          .onTapGesture(count: 2) { draft = task.text }
-          .accessibilityLabel("\(dueLabel(task)), \(task.status.title)")
+        HStack(spacing: 4) {
+          Text(dueLabel(task))
+            .font(.mono(13))
+            .strikethrough(task.status == .cancelled)
+            .foregroundStyle(
+              task.status == .todo || task.status == .pending ? .primary : .secondary
+            )
+            .accessibilityLabel("\(dueLabel(task)), \(task.status.title)")
+          if task.notes != nil {
+            Text("≡").font(.mono(13)).foregroundStyle(.secondary).accessibilityLabel("Has notes")
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { draft = task.text }
+        .onTapGesture { showingNotes.toggle() }
       }
     }
-    .contextMenu {
-      Button("Edit") { draft = task.text }
-      Picker("Status", selection: Binding(get: { task.status }, set: { setStatus($0) })) {
-        ForEach(TaskStatus.allCases, id: \.self) { Text($0.title).tag($0) }
-      }
-      Button(task.due == nil ? "Set Due Date…" : "Change Due Date…") { editingDue = true }
-      if task.due != nil { Button("Clear Due Date") { setDue(nil) } }
-      Divider()
-      Button("Delete", role: .destructive) { state.perform { try $0.remove(task.id) } }
-    }
-    .popover(isPresented: $editingDue) { DueEditor(due: task.due, save: setDue) }
   }
 
   private func setStatus(_ status: TaskStatus) {
@@ -175,6 +211,53 @@ struct TaskRow: View {
       if state.lastError != nil { return }
     }
     draft = nil
+  }
+}
+
+/// Notes under a row: links while reading, a small editor after the pencil or a double-click.
+private struct NotesArea: View {
+  let state: AppState
+  let task: GlanceTask
+  @State private var draft: String?
+  @FocusState private var focused: Bool
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 8) {
+      if let draft {
+        TextEditor(text: Binding(get: { draft }, set: { self.draft = $0 }))
+          .font(.mono(12))
+          .frame(height: 54)
+          .focused($focused)
+          .onAppear { focused = true }
+          .onChange(of: focused) { if !focused { commit() } }
+          .onKeyPress(.return, phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            commit()
+            return .handled
+          }
+      } else {
+        Text(task.notes.map { linkified($0) } ?? AttributedString("No notes"))
+          .font(.mono(12))
+          .foregroundStyle(task.notes == nil ? .secondary : .primary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .onTapGesture(count: 2) { draft = task.notes ?? "" }
+        Button {
+          draft = task.notes ?? ""
+        } label: {
+          Image(systemName: "pencil").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit notes")
+      }
+    }
+    .padding(.leading, 21)
+  }
+
+  private func commit() {
+    guard let text = draft else { return }
+    draft = nil
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    state.perform { try $0.update(task.id) { $0.notes = trimmed.isEmpty ? nil : trimmed } }
   }
 }
 

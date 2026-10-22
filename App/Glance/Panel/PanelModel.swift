@@ -151,3 +151,13 @@ extension Array where Element: Equatable {
     }
   }
 }
+
+/// Turns URLs in `notes` into links.
+func linkified(_ notes: String) -> AttributedString {
+  var result = AttributedString(notes)
+  let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+  for match in detector?.matches(in: notes, range: NSRange(notes.startIndex..., in: notes)) ?? [] {
+    if let range = Range(match.range, in: result) { result[range].link = match.url }
+  }
+  return result
+}
