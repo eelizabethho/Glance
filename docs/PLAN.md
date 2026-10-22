@@ -278,7 +278,7 @@ Use the official MCP Swift SDK over **stdio only**. The server opens no network 
 | `list_tasks({ status?, category?, due? })` | Read tasks |
 | `get_summary()` | Counts, plus tasks due today or overdue |
 | `add_task({ text, category?, due? })` | **Only when the user explicitly asks** to add something. The tool description must say this. |
-| `suggest_tasks({ tasks: [{ text, category?, due?, reason }] })` | Writes **only** to `## suggested`. Dedupes against open tasks and returns what it skipped. |
+| `suggest_tasks({ tasks: [{ text, due?, reason? }], source? })` | Writes **only** to `## suggested`. Dedupes against open tasks and returns what it skipped. No `category`: the file format has no slot for one on a suggestion, so the category is chosen when the suggestion is accepted in the app. |
 | `update_task({ id, text?, status?, category?, due?, notes? })` | Edit a task |
 | `complete_task({ id })` / `cancel_task({ id })` | Shortcuts |
 | `list_categories()` / `add_category({ name })` | Manage categories |
