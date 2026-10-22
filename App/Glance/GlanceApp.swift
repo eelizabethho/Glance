@@ -1,4 +1,3 @@
-import ServiceManagement
 import SwiftUI
 
 @main
@@ -20,33 +19,7 @@ struct GlanceApp: App {
       }
       Button("Quit Glance") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
-    Settings { EmptyView() }
-  }
-}
-
-/// Backed by `SMAppService.mainApp`; a failed register or unregister shows in the label.
-struct LaunchAtLoginToggle: View {
-  @State private var enabled = SMAppService.mainApp.status == .enabled
-  @State private var error: String?
-
-  var body: some View {
-    Toggle(
-      error ?? "Launch at Login",
-      isOn: Binding(
-        get: { enabled },
-        set: { wanted in
-          do {
-            if wanted {
-              try SMAppService.mainApp.register()
-            } else {
-              try SMAppService.mainApp.unregister()
-            }
-            error = nil
-          } catch {
-            self.error = error.localizedDescription
-          }
-          enabled = SMAppService.mainApp.status == .enabled
-        }))
+    Settings { SettingsView() }
   }
 }
 

@@ -13,7 +13,7 @@ private let focusAddField = Notification.Name("GlanceFocusAddField")
 struct PanelView: View {
   let state: AppState
   @State private var prefs: PanelPrefs
-  @State private var showingSettings = false
+  @Environment(\.openSettings) private var openSettings
   @State private var newText = ""
   @FocusState private var addFocused: Bool
   @AppStorage("showButterfly") private var showButterfly = true
@@ -117,16 +117,13 @@ struct PanelView: View {
       HStack {
         Spacer()
         Button {
-          showingSettings = true
+          NSApp.activate()
+          openSettings()
         } label: {
           Image(systemName: "gearshape").foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Settings")
-        // shortcut: empty placeholder, the Settings window replaces it in #20.
-        .popover(isPresented: $showingSettings) {
-          Text("Settings").font(.mono(12)).padding()
-        }
       }
     }
   }
