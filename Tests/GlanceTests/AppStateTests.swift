@@ -49,3 +49,47 @@ struct AppStateTests {
     #expect(try String(contentsOf: url, encoding: .utf8) == sample)
   }
 }
+
+/// Polls every 50 ms until `condition` holds or `timeout` passes.
+private func eventually(
+  _ timeout: Duration = .seconds(2), _ condition: () -> Bool
+) async -> Bool {
+  let deadline = ContinuousClock.now + timeout
+  while ContinuousClock.now < deadline {
+    if condition() { return true }
+    try? await Task.sleep(for: .milliseconds(50))
+  }
+  return condition()
+}
+
+struct LiveSyncTests {
+  @Test func externalAtomicWriteShowsUp() async throws {
+    let url = try tempFile(sample)
+    let state = AppState(url: url)
+    let temp = url.deletingLastPathComponent().appending(path: ".tmp-external")
+    try (sample + "- [ ] from outside\n").write(to: temp, atomically: false, encoding: .utf8)
+    _ = try FileManager.default.replaceItemAt(url, withItemAt: temp)
+    let shown = await eventually {
+      state.document.categories.flatMap(\.tasks).contains { $0.text == "from outside" }
+    }
+    #expect(shown)
+  }
+
+  @Test func concurrentWritersLoseNothingAndStateConverges() async throws {
+    let url = try tempFile("## work\n")
+    let state = AppState(url: url)
+    let other = Task.detached {
+      let store = FileStore(url: url)
+      for index in 0..<20 { try store.write { _ = try $0.add("other \(index)", category: "work") } }
+    }
+    for index in 0..<20 {
+      state.perform { _ = try $0.add("app \(index)", category: "work") }
+      await Task.yield()
+    }
+    try await other.value
+    let (fileDoc, _) = try FileStore(url: url).read()
+    #expect(fileDoc.categories.flatMap(\.tasks).count == 40)
+    let converged = await eventually(.seconds(1)) { state.document == fileDoc }
+    #expect(converged)
+  }
+}

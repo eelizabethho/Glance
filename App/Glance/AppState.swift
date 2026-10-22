@@ -8,7 +8,11 @@ import Observation
 
   private(set) var document: GlanceDocument
   private(set) var lastError: (any Error)?
+  /// The day `dueCount` is measured against; moves on at local midnight.
+  private(set) var now = Date()
   private let store: FileStore
+  @ObservationIgnored private var watcher: Task<Void, Never>?
+  @ObservationIgnored private var midnight: Task<Void, Never>?
 
   init(url: URL = defaultURL) {
     store = FileStore(url: url)
@@ -18,10 +22,33 @@ import Observation
       document = MarkdownParser.parse("")
       lastError = error
     }
+    // The stream is made here so a write right after init is not missed.
+    let changes = store.changes
+    watcher = Task { [weak self] in
+      for await doc in changes { self?.document = doc }
+    }
+    scheduleMidnight()
+  }
+
+  deinit {
+    watcher?.cancel()
+    midnight?.cancel()
+  }
+
+  /// One sleep to just past the next local midnight, then again; no repeating timer.
+  private func scheduleMidnight() {
+    let next = Calendar.current.nextDate(
+      after: .now, matching: DateComponents(hour: 0), matchingPolicy: .nextTime)
+    midnight = Task { [weak self] in
+      try? await Task.sleep(for: .seconds((next?.timeIntervalSinceNow ?? 3600) + 1))
+      guard !Task.isCancelled, let self else { return }
+      now = .now
+      scheduleMidnight()
+    }
   }
 
   var todoCount: Int { Counts.todo(document) }
-  var dueCount: Int { Counts.dueTodayOrOverdue(document, now: .now) }
+  var dueCount: Int { Counts.dueTodayOrOverdue(document, now: now) }
 
   /// Applies `edit` to the latest file and shows the result. A thrown error leaves the file as is.
   func perform(_ edit: (inout GlanceDocument) throws -> Void) {
