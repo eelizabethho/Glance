@@ -1,0 +1,27 @@
+name: Glance
+options:
+  bundleIdPrefix: com.eelizabethho
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  Glance:
+    path: .
+targets:
+  Glance:
+    type: application
+    platform: macOS
+    sources: [App/Glance]
+    dependencies:
+      - package: Glance
+        product: GlanceCore
+    info:
+      path: App/Glance/Info.plist
+      properties:
+        CFBundleDisplayName: Glance
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_IDENTITY: "-"
