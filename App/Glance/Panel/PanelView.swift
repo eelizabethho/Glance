@@ -16,6 +16,7 @@ struct PanelView: View {
   @State private var showingSettings = false
   @State private var newText = ""
   @FocusState private var addFocused: Bool
+  @AppStorage("showButterfly") private var showButterfly = true
 
   init(state: AppState, prefs: PanelPrefs = PanelPrefs()) {
     self.state = state
@@ -53,6 +54,12 @@ struct PanelView: View {
       addField
     }
     .padding(16)
+    .background(alignment: .bottomTrailing) {
+      if showButterfly {
+        Butterfly().stroke(.primary, lineWidth: 1).opacity(0.07).frame(width: 70, height: 55)
+          .padding(12).allowsHitTesting(false)
+      }
+    }
     .onReceive(NotificationCenter.default.publisher(for: focusAddField)) { _ in addFocused = true }
   }
 
