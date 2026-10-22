@@ -2,12 +2,11 @@ import SwiftUI
 
 @main
 struct GlanceApp: App {
+  @State private var state = AppState()
+
   var body: some Scene {
     WindowGroup {
-      Text("0")
-        .font(.system(size: 16, weight: .medium))
-        .frame(width: 56, height: 56)
-        .glassEffect(.regular, in: .circle)
+      BallView(state: state)
         .padding(40)
     }
     .windowResizability(.contentSize)
