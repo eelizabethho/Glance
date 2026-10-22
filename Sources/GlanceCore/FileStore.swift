@@ -59,8 +59,13 @@ public final class FileStore: Sendable {
       let id = UUID()
       seen.withLock { $0[id] = (try? read())?.hash }
       let queue = DispatchQueue(label: "FileStore.changes")
+      // FSEvents cannot watch a directory that does not exist yet.
+      try? FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
       let onEvent = Callback { [self] in
-        guard let (doc, hash) = try? read(),
+        // A delete-then-recreate save would otherwise flash the empty template.
+        guard FileManager.default.fileExists(atPath: url.path),
+          let (doc, hash) = try? read(),
           seen.withLock({ $0.updateValue(hash, forKey: id) != hash })
         else { return }
         continuation.yield(doc)
