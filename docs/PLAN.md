@@ -167,19 +167,32 @@ glance: 1
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
-**GlanceCore API (frozen after Thread 0; changing it needs a PR labelled `contract-change`):**
+**GlanceCore API (frozen at the end of Thread 0; changing it needs a PR labelled `contract-change`):**
 ```swift
-enum TaskStatus { case todo, pending, completed, cancelled }
-struct GlanceTask: Identifiable, Equatable { id, text, status, category, due: DueDate?, doneAt: Date?, notes: String?, source: String? }
-struct GlanceDocument { var categories: [Category]; /* + preserved unknown lines */ }
+enum TaskStatus: String { case todo = " ", pending = "/", completed = "x", cancelled = "-" }
+struct CalendarDay      // year, month, day; no time zone, so dates never shift between processes
+struct TimeOfDay        // hour, minute
+struct DueDate { day: CalendarDay; time: TimeOfDay? }
+struct Suggestion { source: String; day: CalendarDay }      // the 🤖 token
+struct TaskID { rawValue: String }                          // "category/text#occurrence"
+struct GlanceTask: Identifiable { id, category (read-only); text, status, due: DueDate?, doneAt: CalendarDay?,
+                                  notes: String?, suggestion: Suggestion? }
+struct Category { name (read-only); tasks: [GlanceTask]; isSuggested }
+struct GlanceDocument { categories (read-only); tasks; task(_ id:) }   // + preserved unknown lines
 
 MarkdownParser.parse(_ text: String) -> GlanceDocument
-MarkdownSerializer.serialize(_ doc: GlanceDocument) -> String   // canonical round-trip is lossless
-TaskOps: add, update, setStatus, move, remove, addCategory, renameCategory, removeCategory, reorderCategories,
-         suggest (dedupes against open tasks), acceptSuggestion, dismissSuggestion
-Counts.todo(doc) -> Int ; Counts.dueTodayOrOverdue(doc, now:) -> Int
-FileStore(url:): read() -> (GlanceDocument, hash) ; write(transform:) throws ; changes: AsyncStream<GlanceDocument>
+MarkdownSerializer.serialize(_ doc: GlanceDocument) -> String   // lossless for every line that is not a task
+
+// Task ops are mutating methods on GlanceDocument and throw TaskOpsError.
+add(_:category:due:) -> TaskID ; update(_:_ edit:) -> TaskID ; setStatus(_:_:today:) -> TaskID
+move(_:to:at:) -> TaskID ; remove(_:) ; addCategory ; renameCategory(_:to:) ; removeCategory ; reorderCategories
+suggest(_:due:source:today:) -> SuggestResult (.added(id) | .duplicate(of: id))   // dedupes against open tasks
+acceptSuggestion(_:into:) -> TaskID ; dismissSuggestion(_:)
+
+Counts.todo(doc) -> Int ; Counts.dueTodayOrOverdue(doc, now:, calendar:) -> Int
+FileStore(url:): read() -> (GlanceDocument, hash) ; write(_ transform:) throws -> T ; changes: AsyncStream<GlanceDocument>
 ```
+Edits change a task's `id` when they change its text or category, so every op returns the new `id`.
 
 ---
 
