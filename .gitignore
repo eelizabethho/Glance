@@ -7,3 +7,6 @@ DerivedData/
 .swiftpm/
 .DS_Store
 App/Glance/Info.plist
+
+# Claude Code subagent worktrees
+.claude/worktrees/
