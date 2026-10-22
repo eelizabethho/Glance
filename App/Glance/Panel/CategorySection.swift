@@ -150,7 +150,7 @@ struct TaskRow: View {
     }
     .contextMenu {
       Button("Edit") { draft = task.text }
-      Picker("Status", selection: Binding(get: { task.status }, set: setStatus)) {
+      Picker("Status", selection: Binding(get: { task.status }, set: { setStatus($0) })) {
         ForEach(TaskStatus.allCases, id: \.self) { Text($0.title).tag($0) }
       }
       Button(task.due == nil ? "Set Due Date…" : "Change Due Date…") { editingDue = true }
