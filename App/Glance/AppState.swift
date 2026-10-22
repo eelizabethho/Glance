@@ -24,8 +24,9 @@ import Observation
     }
     // The stream is made here so a write right after init is not missed.
     let changes = store.changes
+    // An event's payload can be older than a write `perform` made meanwhile, so re-read on delivery.
     watcher = Task { [weak self] in
-      for await doc in changes { self?.document = doc }
+      for await _ in changes { self?.reload() }
     }
     scheduleMidnight()
   }
@@ -44,6 +45,14 @@ import Observation
       guard !Task.isCancelled, let self else { return }
       now = .now
       scheduleMidnight()
+    }
+  }
+
+  private func reload() {
+    do {
+      document = try store.read().0
+    } catch {
+      lastError = error
     }
   }
 
