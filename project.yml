@@ -25,3 +25,19 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_IDENTITY: "-"
+    scheme:
+      testTargets: [GlanceTests]
+  GlanceTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/GlanceTests]
+    dependencies:
+      - target: Glance
+      - package: Glance
+        product: GlanceCore
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
