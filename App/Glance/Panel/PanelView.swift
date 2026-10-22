@@ -38,6 +38,12 @@ struct PanelView: View {
               CategorySection(state: state, prefs: prefs, name: category.name, tasks: rows)
             }
           }
+          let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
+          if !suggestions.isEmpty {
+            SuggestedSection(
+              state: state, tasks: suggestions, defaultCategory: addCategory,
+              categories: regularCategories.map(\.name))
+          }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
