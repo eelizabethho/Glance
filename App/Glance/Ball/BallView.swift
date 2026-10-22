@@ -5,7 +5,7 @@ struct BallView: View {
 
   var body: some View {
     Text("\(state.todoCount)")
-      .font(.system(size: 16, weight: .medium))
+      .font(.custom("JetBrainsMono-Regular", size: 16))
       .frame(width: 56, height: 56)
       .glassEffect(.regular, in: .circle)
   }

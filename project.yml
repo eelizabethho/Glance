@@ -18,6 +18,8 @@ targets:
       path: App/Glance/Info.plist
       properties:
         CFBundleDisplayName: Glance
+        # Xcode copies Resources/Fonts/*.ttf flat into Contents/Resources.
+        ATSApplicationFontsPath: .
     settings:
       base:
         SWIFT_VERSION: "6.0"
