@@ -19,8 +19,8 @@ Native macOS 26 SwiftUI to-do widget. `docs/PLAN.md` is the source of truth. Rea
 ## Layout
 
 - `Sources/GlanceCore/` holds the models, parser, serializer, task ops, counts, and `FileStore`. The app and `glance-mcp` both use it.
-- `Sources/glance-mcp/` is the stdio MCP server.
-- `Tests/GlanceCoreTests/` holds Swift Testing tests. Fixtures live in `Fixtures/*.md`.
+- `Sources/glance-mcp/` is the stdio MCP server. Its tool logic lives in `Sources/GlanceMCP/` so tests can call it without a transport.
+- `Tests/GlanceCoreTests/` holds Swift Testing tests. Fixtures live in `Fixtures/*.md`. `Tests/GlanceMCPTests/` tests the MCP tools against a temp `todo.md`.
 - `App/Glance/` is the SwiftUI app target.
 - `project.yml` defines the Xcode project. The `.xcodeproj` and `App/Glance/Info.plist` are generated and ignored. Never hand-edit them.
 - `data/todo.md` is the owner's list. `data/` is gitignored.

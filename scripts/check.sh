@@ -13,8 +13,7 @@ swift format lint --strict -r Sources Tests App Package.swift
 swift build
 swift test --enable-code-coverage
 bin=$(swift build --show-bin-path)
-xctest=$(ls -d "$bin"/*.xctest)
-xcrun llvm-cov report "$xctest/Contents/MacOS/$(basename "$xctest" .xctest)" \
+xcrun llvm-cov report "$bin/GlanceCoreTests.xctest/Contents/MacOS/GlanceCoreTests" \
   -instr-profile "$bin/codecov/default.profdata" Sources/GlanceCore |
   awk '/^TOTAL/ { sub("%", "", $10); print "GlanceCore line coverage: " $10 "%"; if ($10 + 0 < 90) exit 1 }'
 xcodegen generate --quiet
