@@ -10,3 +10,6 @@ App/Glance/Info.plist
 
 # Claude Code subagent worktrees
 .claude/worktrees/
+
+# Release output
+dist/
