@@ -147,3 +147,19 @@ private struct Boom: Error {}
   try store.write { $0.append("ours") }
   #expect(await next(own, within: .milliseconds(500)) == nil)
 }
+
+@Test func `changes works before the data directory exists and skips a deleted file`() async throws
+{
+  let url = try tempFile().deletingLastPathComponent().appending(path: "not-yet/todo.md")
+  let store = FileStore(url: url)
+
+  let created = store.changes
+  try FileManager.default.createDirectory(
+    at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+  try "## work\n- [ ] first\n".write(to: url, atomically: true, encoding: .utf8)
+  #expect(await next(created, within: .seconds(1))?.task(named: "first") != nil)
+
+  let deleted = store.changes
+  try FileManager.default.removeItem(at: url)
+  #expect(await next(deleted, within: .milliseconds(500)) == nil)
+}
