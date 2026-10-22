@@ -18,6 +18,7 @@ targets:
       path: App/Glance/Info.plist
       properties:
         CFBundleDisplayName: Glance
+        LSUIElement: true # no Dock icon; the ball is the UI
         # Xcode copies Resources/Fonts/*.ttf flat into Contents/Resources.
         ATSApplicationFontsPath: .
     settings:
