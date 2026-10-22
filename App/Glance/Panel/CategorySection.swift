@@ -60,7 +60,7 @@ struct CategorySection: View {
       }
       .contextMenu { menu }
       .confirmationDialog(
-        "Delete “\(name)” and its \(tasks.count) tasks?", isPresented: $confirmingDelete
+        deleteCategoryTitle(name, in: state.document), isPresented: $confirmingDelete
       ) {
         Button("Delete", role: .destructive) { state.perform { try $0.removeCategory(name) } }
       }
@@ -88,8 +88,10 @@ struct CategorySection: View {
       return
     }
     state.perform { try $0.renameCategory(name, to: new) }
-    if state.lastError == nil { prefs.renameCategory(name, to: new) }
-    draft = nil
+    if state.lastError == nil {
+      prefs.renameCategory(name, to: new)
+      draft = nil
+    }
   }
 
   /// `suggested` stays last; only regular categories swap places.
@@ -170,6 +172,7 @@ struct TaskRow: View {
   private func commit() {
     if let draft, draft != task.text {
       state.perform { try $0.update(task.id) { $0.text = draft } }
+      if state.lastError != nil { return }
     }
     draft = nil
   }

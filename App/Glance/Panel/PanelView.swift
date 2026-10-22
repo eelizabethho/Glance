@@ -37,6 +37,9 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
+      if let error = state.lastError {
+        Text(String(describing: error)).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)
+      }
     }
     .padding(16)
   }
@@ -80,14 +83,14 @@ private struct TabBar: View {
   var body: some View {
     HStack(spacing: 4) {
       ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
           ForEach(prefs.tabs.filter { !$0.isHidden }) { tab in
             let selected = tab.id == current?.id
             Button(tab.name) { prefs.selectedTab = tab.id }
               .buttonStyle(.plain)
               .font(.mono(12))
               .foregroundStyle(selected ? .primary : .secondary)
-              .padding(.horizontal, 7)
+              .padding(.horizontal, 3)
               .padding(.vertical, 4)
               .background {
                 if selected {

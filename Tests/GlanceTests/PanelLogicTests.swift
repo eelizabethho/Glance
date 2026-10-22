@@ -103,7 +103,11 @@ struct TaskRowLogicTests {
 private func withDefaults(_ body: (UserDefaults) throws -> Void) throws {
   let name = "glance-test-\(UUID())"
   let store = try #require(UserDefaults(suiteName: name))
-  defer { store.removePersistentDomain(forName: name) }
+  defer {
+    store.removePersistentDomain(forName: name)
+    try? FileManager.default.removeItem(
+      at: URL.libraryDirectory.appending(path: "Preferences/\(name).plist"))
+  }
   try body(store)
 }
 
@@ -147,5 +151,18 @@ struct PanelPrefsTests {
       #expect(prefs.colors == ["job": "#E8A0B4"])
       #expect(prefs.tabs.last?.filter.categories == ["job", "life"])
     }
+  }
+}
+
+struct DeleteCategoryTitleTests {
+  @Test func countsEveryTaskNotJustTheVisibleOnes() {
+    #expect(deleteCategoryTitle("life", in: doc) == "Delete “life” and its 3 tasks?")
+  }
+
+  @Test func countsCompletedOnlyAndSingular() {
+    let done = MarkdownParser.parse("## done\n- [x] a ✅ 2026-10-21\n- [x] b ✅ 2026-10-21\n")
+    #expect(deleteCategoryTitle("done", in: done) == "Delete “done” and its 2 tasks?")
+    let one = MarkdownParser.parse("## one\n- [x] a ✅ 2026-10-21\n")
+    #expect(deleteCategoryTitle("one", in: one) == "Delete “one” and its 1 task?")
   }
 }
