@@ -6,3 +6,4 @@ DerivedData/
 *.xcodeproj/
 .swiftpm/
 .DS_Store
+App/Glance/Info.plist
