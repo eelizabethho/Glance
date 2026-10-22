@@ -70,6 +70,7 @@ final class WindowController: NSObject, NSWindowDelegate {
 
     ball.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
     list.keyable = true
+    list.setAccessibilityLabel("Glance list")
     list.becomesKeyOnlyIfNeeded = true  // only a click in the text field takes focus
     list.delegate = self
     ballView.onMove = { [weak self] in self?.placeList() }
