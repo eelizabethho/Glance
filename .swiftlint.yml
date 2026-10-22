@@ -3,3 +3,5 @@ excluded: [.build, DerivedData]
 disabled_rules:
   - trailing_comma # swift-format owns trailing commas
   - opening_brace # swift-format owns brace placement
+identifier_name:
+  excluded: [id, of]
