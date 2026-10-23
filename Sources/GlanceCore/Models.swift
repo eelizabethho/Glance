@@ -5,6 +5,9 @@ public enum TaskStatus: String, Sendable, CaseIterable {
   case pending = "/"
   case completed = "x"
   case cancelled = "-"
+
+  /// Completed and old cancelled lines both read as crossed out.
+  public var isCrossedOut: Bool { self == .completed || self == .cancelled }
 }
 
 /// A calendar date with no time zone, so it round-trips through the file unchanged.
@@ -84,6 +87,11 @@ public struct TaskID: Hashable, Sendable, CustomStringConvertible {
   public var description: String { rawValue }
 }
 
+/// `- [ ] text`, `- text`, or `### text`.
+public enum LineKind: String, Sendable, CaseIterable {
+  case checklist, bullet, heading
+}
+
 public struct GlanceTask: Identifiable, Hashable, Sendable {
   public internal(set) var id: TaskID
   public internal(set) var category: String
@@ -93,14 +101,14 @@ public struct GlanceTask: Identifiable, Hashable, Sendable {
   public var doneAt: CalendarDay?
   public var notes: String?
   public var suggestion: Suggestion?
-  /// A `### text` line that titles a group; never counted.
-  public var isHeading: Bool
+  /// Only a checklist line has a status, due date, or suggestion, and only it is counted.
+  public var kind: LineKind
 
   init(
     text: String, status: TaskStatus = .todo, due: DueDate? = nil, doneAt: CalendarDay? = nil,
-    notes: String? = nil, suggestion: Suggestion? = nil, isHeading: Bool = false
+    notes: String? = nil, suggestion: Suggestion? = nil, kind: LineKind = .checklist
   ) {
-    self.isHeading = isHeading
+    self.kind = kind
     self.id = TaskID(rawValue: "")
     self.category = ""
     self.text = text

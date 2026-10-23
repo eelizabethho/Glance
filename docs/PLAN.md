@@ -163,7 +163,7 @@ glance: 1
 
 - `## name` starts a category. `suggested` is reserved for AI suggestions. It isn't counted on the ball and is shown as its own section with ✓/✕.
 - `📅 YYYY-MM-DD[ HH:mm]` is the due date and optional time. `✅ YYYY-MM-DD` is the completion date. `🤖 <source> <date>` marks a suggestion.
-- `### text` inside a category is a heading line, `isHeading = true`. It has no marker or tokens, and is never counted. A `- text` line with no checkbox is kept as a raw line. See ADR 0008.
+- A line has a `kind`: `- [ ] text` is a checklist line (counted, can be crossed out), `- text` is a bullet, `### text` is a heading. Only checklist lines carry a marker status or tokens, and only they are counted. `- [` lines that are not a checkbox stay raw. See ADR 0009.
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
@@ -176,7 +176,7 @@ struct DueDate { day: CalendarDay; time: TimeOfDay? }
 struct Suggestion { source: String; day: CalendarDay }      // the 🤖 token
 struct TaskID { rawValue: String }                          // "category/text#occurrence"
 struct GlanceTask: Identifiable { id, category (read-only); text, status, due: DueDate?, doneAt: CalendarDay?,
-                                  notes: String?, suggestion: Suggestion?, isHeading: Bool }
+                                  notes: String?, suggestion: Suggestion?, kind: LineKind }
 struct Category { name (read-only); tasks: [GlanceTask]; isSuggested }
 struct GlanceDocument { categories (read-only); tasks; task(_ id:) }   // + preserved unknown lines
 
@@ -185,7 +185,7 @@ MarkdownSerializer.serialize(_ doc: GlanceDocument) -> String   // lossless for 
 
 // Task ops are mutating methods on GlanceDocument and throw TaskOpsError.
 add(_:category:due:) -> TaskID ; update(_:_ edit:) -> TaskID ; setStatus(_:_:today:) -> TaskID
-move(_:to:at:) -> TaskID ; remove(_:) ; addCategory ; renameCategory(_:to:) ; removeCategory ; reorderCategories
+move(_:to:at:) -> TaskID ; remove(_:) ; removeCompleted(in:) -> Int ; addCategory ; renameCategory(_:to:) ; removeCategory ; reorderCategories
 suggest(_:due:source:today:) -> SuggestResult (.added(id) | .duplicate(of: id))   // dedupes against open tasks
 acceptSuggestion(_:into:) -> TaskID ; dismissSuggestion(_:)
 

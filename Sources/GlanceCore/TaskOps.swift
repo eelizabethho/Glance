@@ -41,6 +41,9 @@ extension GlanceDocument {
     task.text = try validText(task.text)
     task.id = original.id
     task.category = original.category
+    if task.kind != .checklist {
+      (task.status, task.doneAt, task.due, task.suggestion) = (.todo, nil, nil, nil)
+    }
     categories[cat].entries[row] = .task(task)
     reindex()
     guard case .task(let updated) = categories[cat].entries[row] else { fatalError("just written") }
@@ -72,6 +75,22 @@ extension GlanceDocument {
 
   public mutating func remove(_ id: TaskID) throws {
     _ = try take(id)
+  }
+
+  /// Removes the crossed-out checklist lines of one category and returns how many.
+  @discardableResult
+  public mutating func removeCompleted(in category: String) throws -> Int {
+    let cat = try categoryIndex(category)
+    let before = categories[cat].entries.count
+    categories[cat].entries.removeAll {
+      if case .task(let task) = $0 {
+        task.kind == .checklist && task.status.isCrossedOut
+      } else {
+        false
+      }
+    }
+    reindex()
+    return before - categories[cat].entries.count
   }
 
   public mutating func addCategory(_ name: String) throws {
@@ -246,7 +265,7 @@ public enum Counts {
   /// Open to-do tasks, the number on the ball. Pending tasks and suggestions are not counted.
   public static func todo(_ doc: GlanceDocument) -> Int {
     doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      $0.status == .todo && !$0.isHeading
+      $0.status == .todo && $0.kind == .checklist
     }
   }
 
@@ -256,7 +275,7 @@ public enum Counts {
   ) -> Int {
     let today = CalendarDay(now, calendar: calendar)
     return doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      !$0.isHeading && ($0.status == .todo || $0.status == .pending)
+      $0.kind == .checklist && ($0.status == .todo || $0.status == .pending)
         && $0.due.map { $0.day <= today } == true
     }
   }

@@ -215,7 +215,7 @@ public enum GlanceTools {
       "doneAt": task.doneAt.map { .string("\($0)") } ?? .null,
       "notes": task.notes.map(Value.string) ?? .null,
       "suggested": .bool(task.suggestion != nil),
-      "isHeading": .bool(task.isHeading),
+      "kind": .string(task.kind.rawValue),
     ]
   }
 
