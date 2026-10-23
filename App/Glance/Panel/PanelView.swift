@@ -84,6 +84,7 @@ struct PanelView: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel("Add page")
+    .help("New page")
   }
 
   private func saveName() {
@@ -138,8 +139,8 @@ struct PanelView: View {
 
   /// A capsule per page; the selected one is a white pill. Right-click to rename or delete.
   private var pageRow: some View {
-    HStack(spacing: 8) {
-      ScrollView(.horizontal, showsIndicators: false) {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: 8) {
         HStack(spacing: 0) {
           ForEach(pages, id: \.self) { page in
             let selected = page == current
@@ -166,8 +167,8 @@ struct PanelView: View {
         }
         .padding(2)
         .background(Capsule().fill(.quaternary))
+        addPage
       }
-      addPage
     }
   }
 }

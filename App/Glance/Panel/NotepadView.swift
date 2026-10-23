@@ -211,6 +211,8 @@ private struct NotepadLine: View {
         Text("\(due.day.month)/\(due.day.day)").font(.mono(11)).foregroundStyle(.secondary)
       }
     }
+    // Room above a heading so each group reads as its own block.
+    .padding(.top, task.isHeading ? 8 : 0)
     .contextMenu {
       Button(task.isHeading ? "Make Line" : "Make Heading") { setHeading(!task.isHeading) }
       Button("Delete", role: .destructive) { deleted() }
