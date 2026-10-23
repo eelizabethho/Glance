@@ -50,6 +50,28 @@ struct AppStateTests {
   }
 }
 
+struct OrbCountTests {
+  @Test func countsEveryLineThatIsNotHeadingBlankOrCrossedOut() throws {
+    let state = AppState(
+      url: try tempFile(
+        """
+        ## work
+        ### Today
+        - [ ] a
+        - [/] b
+        - [x] c ✅ 2026-10-20
+        - [-] d
+        - bullet
+        plain
+
+        ## suggested
+        - [ ] idea 🤖 claude 2026-10-20
+
+        """))
+    #expect(state.todoCount == 4)
+  }
+}
+
 /// Polls every 50 ms until `condition` holds or `timeout` passes.
 private func eventually(
   _ timeout: Duration = .seconds(2), _ condition: () -> Bool

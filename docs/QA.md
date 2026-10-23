@@ -31,7 +31,8 @@
 - [ ] Tasks: drag and drop between categories
 - [ ] Add field parses `ddl 10/25` as a due date
 - [ ] Suggested section: ✓ accepts, ✕ dismisses
-- [ ] Butterfly toggle works
+- [ ] Quit button saves the last edit and quits
+- [ ] Transparency slider: 0 is clear glass, 1 is solid
 
 ## Appearance
 - [ ] Light mode

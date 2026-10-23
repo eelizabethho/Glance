@@ -27,17 +27,17 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 |---|---|
 | **Ball** | Frosted circle under the menu bar, top-right, showing the open count (e.g. `8`). Always on top. |
 | **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
-| **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right, with a clear-glass toggle beside it. |
-| **Pages** | Your own pages, one `##` category each. With one page (or none) the row is hidden and a header `+` adds a page. With two or more, a row of capsules (selected one is a white pill) plus `+`. Right-click a page to rename or delete it. See ADR 0008. |
+| **Header** | Date in light grey, centred (`October 20, Tuesday`). Right side: `+` (with one page), a transparency slider toggle `◐`, the settings gear, and `✕`, which quits Glance. `◐` shows a slim slider row under the header. |
+| **Pages** | Your own pages, one `##` category each. With one page (or none) the row is hidden and a header `+` adds a page. With two or more, a row of capsules (selected one is a white pill) plus `+`. Hover a page for `✕`: an empty page deletes at once, a page with lines asks `Delete?` inline. Right-click renames in place. No alerts. See ADR 0008. |
 | **Headings** | A bold line with no marker (`work`, `life`). Type `# ` at the start of a line, or right-click → Heading. |
 | **Items** | One text view per page, as in Apple Notes (ADR 0010). `☐`/`☑` lines cross out when you click the box, `•` bullets, plain lines. Typing `[] `, `- ` or `# ` at line start converts it. A due date is the visible token `📅 2026-10-26`. |
 | **New line** | Return, a click below the last line, or ⌥Space (cursor at the end). An empty page shows `Start typing…`. |
-| **Decoration** | Faint line-art butterfly watermark in the bottom-right of the panel. It's optional and can be turned off. |
+| **Format bar** | Bottom row: `☐ • H` set the kind of the current line (highlighted when active), and "Clear N done" on the right. |
 
 ### 1.2 Requirements
 
 **Must have (v1)**
-- **R1 Ball.** Frosted circle showing the **To-do count only** (Pending isn't counted). Starts top-right under the menu bar. **Draggable** anywhere on screen. It stays where it's dropped and remembers its position across launches. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
+- **R1 Ball.** Frosted circle showing the number of **lines that aren't crossed out** on regular pages: checklist, pending, bullet and plain lines. Blank lines, headings and the suggested section aren't counted. Starts top-right under the menu bar. **Draggable** anywhere on screen. It stays where it's dropped and remembers its position across launches. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
 - **R2 Click behaviour.** Clicking the ball opens the panel and clicking it again closes it. There is no hover behaviour and no fade.
 - **R3 Pages.** No built-in tabs. The user adds, renames, and deletes pages, and each is its own notepad. The selected page is remembered.
 - **R4 Headings.** Any line can be a heading (`### text`) that titles a group inside a page. Headings are never counted or due.
@@ -117,7 +117,7 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 
 ## 4. Visual design
 
-- **Material:** Liquid Glass through SwiftUI's `.glassEffect(...)` on macOS 26, for both the ball and the panel. The panel can switch to `.clear` glass (`clearGlass` pref); the ball stays `.regular`. Reduce Transparency falls back to solid. Tune the tint so light mode matches the screenshots (soft white, about 70% opaque) and dark mode uses the same glass with light text.
+- **Material:** Liquid Glass through SwiftUI's `.glassEffect(...)` on macOS 26, for both the ball and the panel. The panel is `.clear` glass over a fill whose opacity is the `panelOpacity` pref (0…1, default 0.7, set by the inline slider); the ball stays `.regular`. Reduce Transparency falls back to solid. Tune the tint so light mode matches the screenshots (soft white, about 70% opaque) and dark mode uses the same glass with light text.
 - **Font:** JetBrains Mono, bundled and registered via `ATSApplicationFontsPath`. Items 13 pt/400, category labels 13 pt/700 lowercase, date 12 pt/400 secondary colour, tabs 12 pt.
 - **Colours:** system label colours (`.primary` / `.secondary`) so dark mode works automatically. A soft pink accent `#E8A0B4` for category dots. Due-today/overdue tint on the ball uses the same accent at about 35%.
 - **Ball:** 56 pt circle with the count centred at 16 pt medium. It pulses (a scale of 1.0→1.08 that eases back) when the count changes.
@@ -348,7 +348,7 @@ T0 Foundation ──► T1 MCP server ──┐
 - [ ] Notepad lines (cross out, inline edit, headings, context menu for heading and delete)
 - [ ] Per-task notes that expand on click, plus drag and drop to reorder or move tasks
 - [ ] Add-task field with a category picker and quick due-date entry (e.g. typing `ddl 10/25` or `📅` sets the date)
-- [ ] Suggested section with ✓/✕, the butterfly watermark (toggle), and the Settings window (fade opacity and delay, notifications, launch at login, shortcut, Connect Claude Desktop)
+- [ ] Suggested section with ✓/✕, and the Settings window (fade opacity and delay, notifications, launch at login, shortcut, Connect Claude Desktop)
 - [ ] Light and dark screenshots compared to `docs/reference/`
 
 **Done when:** every interaction in R3–R6 works, and screenshots are attached to the PR.
@@ -406,4 +406,4 @@ T0 Foundation ──► T1 MCP server ──┐
 1. Global shortcut: **⌥Space**. Change it if it conflicts with another app.
 2. Default categories in a new list: **work, life, content, study** (from the screenshots).
 3. Reminder time for date-only tasks: **9:00**.
-4. Keep the butterfly watermark: **yes, toggleable in Settings**.
+4. Butterfly watermark: removed.

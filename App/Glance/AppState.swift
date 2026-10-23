@@ -56,7 +56,14 @@ import Observation
     }
   }
 
-  var todoCount: Int { Counts.todo(document) }
+  /// Every line on a regular page that is not blank, a heading or crossed out.
+  var todoCount: Int {
+    document.categories.filter { !$0.isSuggested }.flatMap { document.bodyLines(of: $0.name) }
+      .filter { line in
+        !line.allSatisfy(\.isWhitespace) && !line.hasPrefix("### ")
+          && !["- [x] ", "- [X] ", "- [-] "].contains { line.hasPrefix($0) }
+      }.count
+  }
   var dueCount: Int { Counts.dueTodayOrOverdue(document, now: now) }
 
   /// Applies `edit` to the latest file and shows the result. A thrown error leaves the file as is.

@@ -1,14 +1,12 @@
 import SwiftUI
 
 struct SettingsView: View {
-  @AppStorage("showButterfly") private var showButterfly = true
   // Nothing reads this yet; the reminders thread (T4) will.
   @AppStorage("notificationsEnabled") private var notificationsEnabled = true
   @State private var connecting = false
 
   var body: some View {
     Form {
-      Toggle("Show butterfly", isOn: $showButterfly)
       Toggle("Notifications", isOn: $notificationsEnabled)
       LaunchAtLoginToggle()
       // shortcut: read-only, rebinding the hot key is out of scope until someone asks.
