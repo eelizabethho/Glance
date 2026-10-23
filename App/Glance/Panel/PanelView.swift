@@ -173,7 +173,8 @@ private struct TabBar: View {
             Button(tab.name) { prefs.selectedTab = tab.id }
               .buttonStyle(.plain)
               .font(.mono(12))
-              .foregroundStyle(selected ? .primary : .secondary)
+              // The selected pill is white in both modes, so its text stays black.
+              .foregroundStyle(selected ? Color.black : Color.secondary)
               .padding(.horizontal, 8)
               .padding(.vertical, 4)
               .background {
