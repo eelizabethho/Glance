@@ -214,7 +214,7 @@ private struct TabBar: View {
               .lineLimit(1)
               // The selected pill is white in both modes, so its text stays black.
               .foregroundStyle(selected ? Color.black : Color.secondary)
-              .padding(.horizontal, 11)
+              .padding(.horizontal, 8)
               .padding(.vertical, 5)
               .background {
                 if selected {
@@ -229,13 +229,6 @@ private struct TabBar: View {
         .padding(2)
         .background(Capsule().fill(.quaternary))
       }
-      Button {
-        editing = PanelTab(name: "", filter: TabFilter())
-      } label: {
-        Image(systemName: "plus").foregroundStyle(.secondary)
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel("New tab")
       Menu {
         if let current { menu(for: current) }
         Divider()

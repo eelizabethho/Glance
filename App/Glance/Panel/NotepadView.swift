@@ -82,12 +82,15 @@ struct NotepadView: View {
   private var draftLine: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
       Marker(isNote: draftIsNote, symbol: "square", action: nil)
-      TextField(tasks.isEmpty ? "Start typing" : "", text: $draftText)
+      TextField(tasks.isEmpty ? "Start typing" : "", text: $draftText, axis: .vertical)
         .textFieldStyle(.plain)
         .font(.mono(13))
         .focused(focus, equals: .draft)
         .onChange(of: draftText) {
-          if let shortcut = lineShortcut(draftText) {
+          if draftText.contains("\n") {
+            draftText = draftText.replacing("\n", with: "")
+            commitDraft()
+          } else if let shortcut = lineShortcut(draftText) {
             draftIsNote = shortcut.isNote
             draftText = shortcut.text
           }
@@ -191,27 +194,13 @@ private struct NotepadLine: View {
       }
       .accessibilityLabel(
         task.status == .completed ? "Mark \(task.text) to-do" : "Complete \(task.text)")
-      TextField("", text: $text)
-        .textFieldStyle(.plain)
-        .font(.mono(13))
-        .strikethrough(done)
-        .foregroundStyle(done ? .secondary : .primary)
-        .focused(focus, equals: .task(task.id))
-        .onChange(of: text) {
-          guard let shortcut = lineShortcut(text) else { return }
-          text = shortcut.text
-          if shortcut.isNote != task.isNote { setKind(shortcut.isNote) }
-        }
-        .onChange(of: focus.wrappedValue) { old, _ in
-          if old == .task(task.id), focus.wrappedValue != old { blurred() }
-        }
-        .onSubmit { if let id = commit() { returned(id) } }
-        .onKeyPress(.delete, phases: .down) { _ in
-          guard text.isEmpty else { return .ignored }
-          deleted()
-          return .handled
-        }
-        .accessibilityLabel(task.isNote ? "Bullet" : "Checklist item")
+      if done {
+        // TextField ignores strikethrough on macOS, so a checked line is plain text until unchecked.
+        Text(task.text).font(.mono(13)).strikethrough().foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        field
+      }
       if let due = task.due {
         Text("\(due.day.month)/\(due.day.day)").font(.mono(11)).foregroundStyle(.secondary)
       }
@@ -220,6 +209,34 @@ private struct NotepadLine: View {
       Button(task.isNote ? "Make Checklist Item" : "Make Bullet") { setKind(!task.isNote) }
       Button("Delete", role: .destructive) { deleted() }
     }
+  }
+
+  private var field: some View {
+    TextField("", text: $text, axis: .vertical)
+      .textFieldStyle(.plain)
+      .font(.mono(13))
+      .focused(focus, equals: .task(task.id))
+      .onChange(of: text) {
+        // A wrapping field can take a typed newline; a line in todo.md never may, so it means Return.
+        if text.contains("\n") {
+          text = text.replacing("\n", with: "")
+          if let id = commit() { returned(id) }
+          return
+        }
+        guard let shortcut = lineShortcut(text) else { return }
+        text = shortcut.text
+        if shortcut.isNote != task.isNote { setKind(shortcut.isNote) }
+      }
+      .onChange(of: focus.wrappedValue) { old, _ in
+        if old == .task(task.id), focus.wrappedValue != old { blurred() }
+      }
+      .onSubmit { if let id = commit() { returned(id) } }
+      .onKeyPress(.delete, phases: .down) { _ in
+        guard text.isEmpty else { return .ignored }
+        deleted()
+        return .handled
+      }
+      .accessibilityLabel(task.isNote ? "Bullet" : "Checklist item")
   }
 
   private func setKind(_ isNote: Bool) {
