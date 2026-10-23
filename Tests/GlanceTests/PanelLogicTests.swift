@@ -51,23 +51,14 @@ struct PanelLogicTests {
 
 }
 
-struct DeleteCategoryTitleTests {
-  @Test func countsEveryTaskNotJustTheVisibleOnes() {
-    #expect(deleteCategoryTitle("life", in: doc) == "Delete “life” and its 3 tasks?")
-  }
-
-  @Test func countsCompletedOnlyAndSingular() {
-    let done = MarkdownParser.parse("## done\n- [x] a ✅ 2026-10-21\n- [x] b ✅ 2026-10-21\n")
-    #expect(deleteCategoryTitle("done", in: done) == "Delete “done” and its 2 tasks?")
-    let one = MarkdownParser.parse("## one\n- [x] a ✅ 2026-10-21\n")
-    #expect(deleteCategoryTitle("one", in: one) == "Delete “one” and its 1 task?")
-  }
-}
-
 struct PageRowTests {
   @Test func rowShowsOnlyWithMoreThanOnePage() {
     #expect(!showsPageRow(pageCount: 0))
     #expect(!showsPageRow(pageCount: 1))
     #expect(showsPageRow(pageCount: 2))
+  }
+
+  @Test func panelStartsMostlySolid() {
+    #expect(PanelOpacity.fallback == 0.7)
   }
 }

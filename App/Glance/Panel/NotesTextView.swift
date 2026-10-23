@@ -143,19 +143,6 @@ final class NotesTextView: NSTextView {
     setSelectedRange(selection)
   }
 
-  /// The kind of the line holding the cursor.
-  var currentKind: NoteKind {
-    let (start, end) = paragraph(at: selectedRange().location)
-    guard end > start, let storage = textStorage else {
-      return typingAttributes[.glanceHeading] == nil ? .plain : .heading
-    }
-    if PageText.heading(in: storage, NSRange(location: start, length: end - start)) {
-      return .heading
-    }
-    let line = (string as NSString).substring(with: NSRange(location: start, length: end - start))
-    return PageText.marker(in: line)?.kind ?? .plain
-  }
-
   /// Sets the kind of the line holding the cursor.
   func convertParagraph(to kind: NoteKind) {
     let location = selectedRange().location
@@ -303,12 +290,27 @@ final class NotesTextView: NSTextView {
   }
 
   /// Where the paragraph holding `location` starts and where its text ends, before the newline.
-  private func paragraph(at location: Int) -> (start: Int, end: Int) {
+  fileprivate func paragraph(at location: Int) -> (start: Int, end: Int) {
     var start = 0
     var end = 0
     var contentsEnd = 0
     (string as NSString).getParagraphStart(
       &start, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: location, length: 0))
     return (start, contentsEnd)
+  }
+}
+
+extension NotesTextView {
+  /// The kind of the line holding the cursor.
+  var currentKind: NoteKind {
+    let (start, end) = paragraph(at: selectedRange().location)
+    guard end > start, let storage = textStorage else {
+      return typingAttributes[.glanceHeading] == nil ? .plain : .heading
+    }
+    if PageText.heading(in: storage, NSRange(location: start, length: end - start)) {
+      return .heading
+    }
+    let line = (string as NSString).substring(with: NSRange(location: start, length: end - start))
+    return PageText.marker(in: line)?.kind ?? .plain
   }
 }

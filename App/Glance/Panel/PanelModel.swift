@@ -1,12 +1,6 @@
 import Foundation
 import GlanceCore
 
-/// Counts every task in the category, whatever the tab filter hides, since all of them are deleted.
-func deleteCategoryTitle(_ name: String, in doc: GlanceDocument) -> String {
-  let count = doc.categories.first { $0.name == name }?.tasks.count ?? 0
-  return "Delete “\(name)” and its \(count) \(count == 1 ? "task" : "tasks")?"
-}
-
 /// `Hw 6 – ddl 10/25`, as in the reference screenshot.
 func dueLabel(_ task: GlanceTask) -> String {
   guard let due = task.due else { return task.text }

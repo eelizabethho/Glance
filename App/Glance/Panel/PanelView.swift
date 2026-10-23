@@ -10,20 +10,31 @@ extension Font {
 /// The page row shows once there is more than one page.
 func showsPageRow(pageCount: Int) -> Bool { pageCount > 1 }
 
+/// How solid the panel is: 0 is clear glass, 1 is a solid fill.
+enum PanelOpacity {
+  static let key = "panelOpacity"
+  static let fallback = 0.7
+}
+
 /// The panel: date header, an optional row of pages, then the current page as a notepad.
 struct PanelView: View {
   let state: AppState
   @Environment(\.openSettings) private var openSettings
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @AppStorage("selectedPage") private var selectedPage = ""
-  @AppStorage("showButterfly") private var showButterfly = true
-  @AppStorage("clearGlass") private var clearGlass = false
-  /// nil when closed; `old` is nil when adding a page and the page's name when renaming it.
-  @State private var naming: (old: String?, name: String)?
-  @State private var deleting: String?
+  @AppStorage(PanelOpacity.key) private var opacity = PanelOpacity.fallback
+  @State private var showSlider = false
+  /// Non-nil while the "new page" field is open.
+  @State private var newName: String?
+  @FocusState private var nameFocused: Bool
+  /// The page being renamed in its capsule, with the name typed so far.
+  @State private var renaming: (page: String, name: String)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       header
+      if showSlider { slider }
+      if newName != nil { newPageField }
       if showsPageRow(pageCount: pages.count) { pageRow }
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
@@ -43,23 +54,6 @@ struct PanelView: View {
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 18)
-    .background(alignment: .bottomTrailing) {
-      if showButterfly {
-        Butterfly().stroke(.primary, lineWidth: 1).opacity(0.07).frame(width: 70, height: 55)
-          .padding(12).allowsHitTesting(false)
-      }
-    }
-    .alert(naming?.old == nil ? "New Page" : "Rename Page", isPresented: isNaming) {
-      TextField("Name", text: Binding(get: { naming?.name ?? "" }, set: { naming?.name = $0 }))
-      Button("Cancel", role: .cancel) {}
-      Button(naming?.old == nil ? "Add" : "Rename") { saveName() }
-    }
-    .confirmationDialog(
-      deleting.map { deleteCategoryTitle($0, in: state.document) } ?? "",
-      isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
-    ) {
-      Button("Delete", role: .destructive) { deleting.map(deletePage) }
-    }
   }
 
   private var pages: [String] {
@@ -69,41 +63,52 @@ struct PanelView: View {
   /// The selected page, or the first one when it is gone; nil until the first line makes one.
   private var current: String? { pages.first { $0 == selectedPage } ?? pages.first }
 
-  private var isNaming: Binding<Bool> {
-    Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
+  private func headerButton(
+    _ symbol: String, _ label: String, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) { Image(systemName: symbol).foregroundStyle(.secondary) }
+      .buttonStyle(.plain)
+      .accessibilityLabel(label)
+      .help(label)
   }
 
   private var addPage: some View {
-    Button {
-      naming = (nil, "")
-    } label: {
-      Image(systemName: "plus").foregroundStyle(.secondary)
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel("Add page")
-    .help("New page")
+    headerButton("plus", "Add page") { newName = "" }
   }
 
-  private func saveName() {
-    guard let (old, typed) = naming else { return }
+  private var slider: some View {
+    Slider(value: $opacity, in: 0...1)
+      .controlSize(.mini)
+      .disabled(reduceTransparency)
+      .accessibilityLabel("Panel opacity")
+  }
+
+  private var newPageField: some View {
+    TextField("New page", text: Binding(get: { newName ?? "" }, set: { newName = $0 }))
+      .textFieldStyle(.plain)
+      .font(.mono(11))
+      .focused($nameFocused)
+      .onAppear { nameFocused = true }
+      .onSubmit { commitNew() }
+      .onExitCommand { newName = nil }
+  }
+
+  private func commitNew() {
+    guard let typed = newName else { return }
     let name = typed.trimmingCharacters(in: .whitespaces)
-    state.perform { doc in
-      if let old { try doc.renameCategory(old, to: name) } else { try doc.addCategory(name) }
-    }
+    newName = nil
+    guard !name.isEmpty else { return }
+    state.perform { try $0.addCategory(name) }
     if state.lastError == nil { selectedPage = name }
   }
 
-  private func deletePage(_ name: String) {
-    state.perform { try $0.removeCategory(name) }
-  }
-
-  /// An empty page goes without asking.
-  private func requestDelete(_ page: String) {
-    if state.document.categories.first(where: { $0.name == page })?.tasks.isEmpty == true {
-      deletePage(page)
-    } else {
-      deleting = page
-    }
+  private func commitRename() {
+    guard let (old, typed) = renaming else { return }
+    renaming = nil
+    let name = typed.trimmingCharacters(in: .whitespaces)
+    guard !name.isEmpty, name != old else { return }
+    state.perform { try $0.renameCategory(old, to: name) }
+    if state.lastError == nil { selectedPage = name }
   }
 
   private var header: some View {
@@ -115,51 +120,27 @@ struct PanelView: View {
       HStack(spacing: 10) {
         Spacer()
         if !showsPageRow(pageCount: pages.count) { addPage }
-        Button {
-          clearGlass.toggle()
-        } label: {
-          Image(systemName: "circle.lefthalf.filled").foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(clearGlass ? "Use frosted glass" : "Use clear glass")
-        Button {
+        headerButton("circle.lefthalf.filled", "Transparency") { showSlider.toggle() }
+        headerButton("gearshape", "Settings") {
           NSApp.activate()
           openSettings()
-        } label: {
-          Image(systemName: "gearshape").foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Settings")
+        headerButton("xmark.circle", "Quit Glance") { NSApp.terminate(nil) }
       }
     }
   }
 
-  /// A capsule per page; the selected one is a white pill. Right-click to rename or delete.
+  /// A capsule per page; the selected one is a white pill. Hover for ✕; right-click to rename.
   private var pageRow: some View {
     ScrollView(.horizontal, showsIndicators: false) {
       HStack(spacing: 8) {
         HStack(spacing: 0) {
           ForEach(pages, id: \.self) { page in
-            let selected = page == current
-            Button(page) { selectedPage = page }
-              .buttonStyle(.plain)
-              .font(.mono(11))
-              .lineLimit(1)
-              // The selected pill is white in both modes, so its text stays black.
-              .foregroundStyle(selected ? Color.black : Color.secondary)
-              .padding(.horizontal, 8)
-              .padding(.vertical, 5)
-              .background {
-                if selected {
-                  Capsule().fill(Color.white.opacity(0.9))
-                    .shadow(color: .black.opacity(0.1), radius: 1, y: 0.5)
-                }
-              }
-              .accessibilityAddTraits(selected ? .isSelected : [])
-              .contextMenu {
-                Button("Rename…") { naming = (page, page) }
-                Button("Delete…", role: .destructive) { requestDelete(page) }
-              }
+            PageCapsule(
+              page: page, selected: page == current, renaming: $renaming,
+              hasLines: !(state.document.bodyLines(of: page).isEmpty),
+              select: { selectedPage = page }, commitRename: commitRename,
+              delete: { state.perform { try $0.removeCategory(page) } })
           }
         }
         .padding(2)
@@ -167,5 +148,71 @@ struct PanelView: View {
         addPage
       }
     }
+  }
+}
+
+/// One page in the row. An empty page deletes on the first ✕; one with lines asks "Delete?" first.
+private struct PageCapsule: View {
+  let page: String
+  let selected: Bool
+  @Binding var renaming: (page: String, name: String)?
+  let hasLines: Bool
+  let select: () -> Void
+  let commitRename: () -> Void
+  let delete: () -> Void
+  @State private var hovering = false
+  @State private var confirming = false
+  @FocusState private var focused: Bool
+
+  var body: some View {
+    HStack(spacing: 4) {
+      if renaming?.page == page {
+        TextField(
+          "Name",
+          text: Binding(get: { renaming?.name ?? "" }, set: { renaming?.name = $0 })
+        )
+        .textFieldStyle(.plain)
+        .focused($focused)
+        .onAppear { focused = true }
+        .onSubmit(commitRename)
+        .onExitCommand { renaming = nil }
+        .frame(minWidth: 40)
+      } else {
+        Button(page, action: select).buttonStyle(.plain).lineLimit(1)
+        if confirming {
+          Button("Delete?", action: delete).buttonStyle(.plain).foregroundStyle(.red)
+        } else if hovering {
+          Button(action: requestDelete) { Image(systemName: "xmark") }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete page \(page)")
+            .help("Delete page")
+        }
+      }
+    }
+    .font(.mono(11))
+    // The selected pill is white in both modes, so its text stays black.
+    .foregroundStyle(selected ? Color.black : Color.secondary)
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .background {
+      if selected {
+        Capsule().fill(Color.white.opacity(0.9))
+          .shadow(color: .black.opacity(0.1), radius: 1, y: 0.5)
+      }
+    }
+    .onHover {
+      hovering = $0
+      if !$0 { confirming = false }
+    }
+    .accessibilityAddTraits(selected ? .isSelected : [])
+    .accessibilityAction(named: "Delete page", requestDelete)
+    .contextMenu {
+      Button("Rename…") { renaming = (page, page) }
+      Button("Delete…", role: .destructive, action: requestDelete)
+    }
+  }
+
+  private func requestDelete() {
+    if hasLines { confirming = true } else { delete() }
   }
 }

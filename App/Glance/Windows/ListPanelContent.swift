@@ -12,7 +12,7 @@ struct ListPanelContent: View {
 
   let state: AppState
   let model: ListPanelModel
-  @AppStorage("clearGlass") private var clearGlass = false
+  @AppStorage(PanelOpacity.key) private var opacity = PanelOpacity.fallback
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: 18)
@@ -21,7 +21,7 @@ struct ListPanelContent: View {
         PanelView(state: state)
           .scrollContentBackground(.hidden)
           .clipShape(shape)
-          .modifier(GlassBackground(shape: shape, clear: clearGlass))
+          .modifier(GlassBackground(shape: shape, fill: opacity))
           .transition(.scale(scale: 0.15, anchor: anchor).combined(with: .opacity))
       }
     }

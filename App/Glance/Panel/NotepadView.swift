@@ -1,5 +1,5 @@
-import GlanceCore
 import AppKit
+import GlanceCore
 import SwiftUI
 
 private let focusNewLine = Notification.Name("GlanceFocusAddField")
@@ -21,7 +21,8 @@ struct NotepadView: View {
         doneCountChanged: { doneCount = $0 })
       formatBar
     }
-    .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { _ in
+    .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification))
+    { _ in
       kind = handle.kind
     }
     .onChange(of: lines, initial: true) { doneCount = PageText.doneCount(lines: lines) }
@@ -52,10 +53,13 @@ struct NotepadView: View {
 
   private func formatButton(_ glyph: String, _ target: NoteKind, label: String) -> some View {
     let active = kind == target
-    return Button { handle.setKind(target) } label: {
+    return Button {
+      handle.setKind(target)
+    } label: {
       Text(glyph).font(.mono(12, bold: true)).frame(width: 24, height: 22)
         .foregroundStyle(active ? Color.primary : Color.secondary)
-        .background(active ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .background(
+          active ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 6))
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)

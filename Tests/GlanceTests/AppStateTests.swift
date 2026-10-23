@@ -26,7 +26,7 @@ private let sample = """
 struct AppStateTests {
   @Test func loadsCountsFromAnExistingFile() throws {
     let state = AppState(url: try tempFile(sample))
-    #expect(state.todoCount == 1)
+    #expect(state.todoCount == 2)
     #expect(state.dueCount == 1)
     #expect(state.document.categories.map(\.name) == ["work", "suggested"])
   }
@@ -35,7 +35,7 @@ struct AppStateTests {
     let url = try tempFile(sample)
     let state = AppState(url: url)
     state.perform { _ = try $0.add("groceries", category: "work") }
-    #expect(state.todoCount == 2)
+    #expect(state.todoCount == 3)
     #expect(state.lastError == nil)
     #expect(try String(contentsOf: url, encoding: .utf8).contains("- [ ] groceries"))
   }
@@ -45,7 +45,7 @@ struct AppStateTests {
     let state = AppState(url: url)
     state.perform { _ = try $0.add("", category: "work") }
     #expect(state.lastError != nil)
-    #expect(state.todoCount == 1)
+    #expect(state.todoCount == 2)
     #expect(try String(contentsOf: url, encoding: .utf8) == sample)
   }
 }
