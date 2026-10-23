@@ -166,3 +166,11 @@ struct DeleteCategoryTitleTests {
     #expect(deleteCategoryTitle("one", in: one) == "Delete “one” and its 1 task?")
   }
 }
+
+struct NotepadTests {
+  @Test func flatOnlyWithAtMostOneRegularCategory() {
+    #expect(isNotepad(regularCategoryCount: 0))
+    #expect(isNotepad(regularCategoryCount: 1))
+    #expect(!isNotepad(regularCategoryCount: 2))
+  }
+}

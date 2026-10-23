@@ -27,9 +27,9 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 |---|---|
 | **Ball** | Frosted circle under the menu bar, top-right, showing the open count (e.g. `8`). Always on top. |
 | **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
-| **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right. |
+| **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right, with a clear-glass toggle beside it. |
 | **Tabs** | A segmented control: `To-do` · `Pending` · `Completed` · `Cancelled`. Active tab is a white pill. |
-| **Categories** | Collapsible groups with a `•`/`▾` marker and a bold lowercase label (`work`, `life`, `content`, `study`). |
+| **Categories** | Collapsible groups with a `•`/`▾` marker and a bold lowercase label (`work`, `life`, `content`, `study`). With 0 or 1 regular categories the panel is a notepad: tasks render flat, with no header and no category menu in the add field. |
 | **Items** | Square checkbox and monospace text. A due date reads like `Hw 6 – ddl 10/25`. |
 | **Add input** | `Add new todo` field with a `+` at the bottom. |
 | **Decoration** | Faint line-art butterfly watermark in the bottom-right of the panel. It's optional and can be turned off. |
@@ -117,7 +117,7 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 
 ## 4. Visual design
 
-- **Material:** Liquid Glass through SwiftUI's `.glassEffect(...)` on macOS 26, for both the ball and the panel. Tune the tint so light mode matches the screenshots (soft white, about 70% opaque) and dark mode uses the same glass with light text.
+- **Material:** Liquid Glass through SwiftUI's `.glassEffect(...)` on macOS 26, for both the ball and the panel. The panel can switch to `.clear` glass (`clearGlass` pref); the ball stays `.regular`. Reduce Transparency falls back to solid. Tune the tint so light mode matches the screenshots (soft white, about 70% opaque) and dark mode uses the same glass with light text.
 - **Font:** JetBrains Mono, bundled and registered via `ATSApplicationFontsPath`. Items 13 pt/400, category labels 13 pt/700 lowercase, date 12 pt/400 secondary colour, tabs 12 pt.
 - **Colours:** system label colours (`.primary` / `.secondary`) so dark mode works automatically. A soft pink accent `#E8A0B4` for category dots. Due-today/overdue tint on the ball uses the same accent at about 35%.
 - **Ball:** 56 pt circle with the count centred at 16 pt medium. It pulses (a scale of 1.0→1.08 that eases back) when the count changes.

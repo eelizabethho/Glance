@@ -9,6 +9,9 @@ extension Font {
 
 private let focusAddField = Notification.Name("GlanceFocusAddField")
 
+/// A document with at most one regular category reads as a notepad: no headers, no category menu.
+func isNotepad(regularCategoryCount: Int) -> Bool { regularCategoryCount <= 1 }
+
 /// The list: date header, tabs, then the active tab's tasks grouped by category.
 struct PanelView: View {
   let state: AppState
@@ -17,6 +20,7 @@ struct PanelView: View {
   @State private var newText = ""
   @FocusState private var addFocused: Bool
   @AppStorage("showButterfly") private var showButterfly = true
+  @AppStorage("clearGlass") private var clearGlass = false
 
   init(state: AppState, prefs: PanelPrefs = PanelPrefs()) {
     self.state = state
@@ -24,19 +28,28 @@ struct PanelView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: 14) {
       header
       TabBar(prefs: prefs, categories: regularCategories.map(\.name))
       ScrollView {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
           let tab = prefs.currentTab
           let tasks = tab?.filter.tasks(in: state.document, now: .now) ?? []
           // The To-do tab keeps empty categories visible so they can still be managed.
           let showEmpty = tab?.isStatus == true && tab?.filter.statuses == [.todo]
-          ForEach(regularCategories, id: \.name) { category in
-            let rows = tasks.filter { $0.category == category.name }
-            if showEmpty || !rows.isEmpty {
-              CategorySection(state: state, prefs: prefs, name: category.name, tasks: rows)
+          if notepad {
+            let names = Set(regularCategories.map(\.name))
+            VStack(alignment: .leading, spacing: 8) {
+              ForEach(tasks.filter { names.contains($0.category) }) {
+                TaskRow(state: state, task: $0)
+              }
+            }
+          } else {
+            ForEach(regularCategories, id: \.name) { category in
+              let rows = tasks.filter { $0.category == category.name }
+              if showEmpty || !rows.isEmpty {
+                CategorySection(state: state, prefs: prefs, name: category.name, tasks: rows)
+              }
             }
           }
           let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
@@ -76,15 +89,17 @@ struct PanelView: View {
         .font(.mono(13))
         .focused($addFocused)
         .onSubmit { submit() }
-      Menu(addCategory ?? "") {
-        ForEach(regularCategories, id: \.name) { category in
-          Button(category.name) { prefs.addCategory = category.name }
+      if !notepad {
+        Menu(addCategory ?? "") {
+          ForEach(regularCategories, id: \.name) { category in
+            Button(category.name) { prefs.addCategory = category.name }
+          }
         }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .font(.mono(12))
+        .accessibilityLabel("Category for new todo")
       }
-      .menuStyle(.borderlessButton)
-      .fixedSize()
-      .font(.mono(12))
-      .accessibilityLabel("Category for new todo")
       Button {
         submit()
       } label: {
@@ -93,7 +108,12 @@ struct PanelView: View {
       .buttonStyle(.plain)
       .accessibilityLabel("Add todo")
     }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 9)
+    .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
   }
+
+  private var notepad: Bool { isNotepad(regularCategoryCount: regularCategories.count) }
 
   private func submit() {
     let parsed = parseQuickAdd(newText, now: .now, calendar: .current)
@@ -114,8 +134,15 @@ struct PanelView: View {
       TimelineView(.everyMinute) { context in
         Text(headerDate(context.date)).font(.mono(12)).foregroundStyle(.secondary)
       }
-      HStack {
+      HStack(spacing: 10) {
         Spacer()
+        Button {
+          clearGlass.toggle()
+        } label: {
+          Image(systemName: "circle.lefthalf.filled").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(clearGlass ? "Use frosted glass" : "Use clear glass")
         Button {
           NSApp.activate()
           openSettings()
@@ -147,11 +174,11 @@ private struct TabBar: View {
               .buttonStyle(.plain)
               .font(.mono(12))
               .foregroundStyle(selected ? .primary : .secondary)
-              .padding(.horizontal, 3)
+              .padding(.horizontal, 8)
               .padding(.vertical, 4)
               .background {
                 if selected {
-                  Capsule().fill(Color(nsColor: .controlBackgroundColor))
+                  Capsule().fill(Color.white.opacity(0.9))
                     .shadow(color: .black.opacity(0.1), radius: 1, y: 0.5)
                 }
               }
