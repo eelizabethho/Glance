@@ -36,17 +36,14 @@ struct PanelView: View {
       if showSlider { slider }
       if newName != nil { newPageField }
       if showsPageRow(pageCount: pages.count) { pageRow }
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          NotepadView(
-            state: state, category: current, lines: state.document.bodyLines(of: current ?? ""))
-          let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
-          if !suggestions.isEmpty {
-            SuggestedSection(
-              state: state, tasks: suggestions, defaultCategory: current, categories: pages)
-          }
+      NotepadView(
+        state: state, category: current, lines: state.document.bodyLines(of: current ?? "")
+      ) {
+        let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
+        if !suggestions.isEmpty {
+          SuggestedSection(
+            state: state, tasks: suggestions, defaultCategory: current, categories: pages)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
       }
       if let error = state.lastError, error as? TaskOpsError != .emptyText {
         Text(String(describing: error)).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)

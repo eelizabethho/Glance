@@ -5,20 +5,29 @@ import SwiftUI
 private let focusNewLine = Notification.Name("GlanceFocusAddField")
 
 /// A page shown as a document: one editable text view, with "Clear N done" below it.
-struct NotepadView: View {
+struct NotepadView<Below: View>: View {
   let state: AppState
   /// nil means the first page, made on the first save.
   let category: String?
   let lines: [String]
+  /// Scrolls with the page, above the format bar (the Suggested section).
+  @ViewBuilder let below: Below
   @State private var handle = EditorHandle()
   @State private var doneCount = 0
   @State private var kind = NoteKind.plain
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      PageEditor(
-        state: state, page: category, lines: lines, handle: handle,
-        doneCountChanged: { doneCount = $0 })
+      // The page scrolls; the format bar stays pinned to the bottom of the panel, as in Notes.
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+          PageEditor(
+            state: state, page: category, lines: lines, handle: handle,
+            doneCountChanged: { doneCount = $0 })
+          below
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
       formatBar
     }
     .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification))
@@ -38,9 +47,9 @@ struct NotepadView: View {
 
   private var formatBar: some View {
     HStack(spacing: 4) {
-      formatButton("☐", .checklist, label: "Checklist")
-      formatButton("•", .bullet, label: "Bullet")
-      formatButton("H", .heading, label: "Heading")
+      formatButton("checklist", .checklist, label: "Checklist")
+      formatButton("list.bullet", .bullet, label: "Bullet")
+      formatButton("textformat.size", .heading, label: "Heading")
       Spacer()
       if doneCount > 0 {
         Button("Clear \(doneCount) done") { handle.clearDone() }
@@ -51,12 +60,12 @@ struct NotepadView: View {
     }
   }
 
-  private func formatButton(_ glyph: String, _ target: NoteKind, label: String) -> some View {
+  private func formatButton(_ symbol: String, _ target: NoteKind, label: String) -> some View {
     let active = kind == target
     return Button {
       handle.setKind(target)
     } label: {
-      Text(glyph).font(.mono(12, bold: true)).frame(width: 24, height: 22)
+      Image(systemName: symbol).font(.system(size: 13)).frame(width: 26, height: 22)
         .foregroundStyle(active ? Color.primary : Color.secondary)
         .background(
           active ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 6))
