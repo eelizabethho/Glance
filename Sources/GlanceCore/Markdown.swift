@@ -104,11 +104,12 @@ public enum MarkdownSerializer {
   }
 
   static func taskLines(_ task: GlanceTask) -> [String] {
-    if task.isHeading { return ["### \(task.text)"] }
-    var line = "- [\(task.status.rawValue)] \(task.text)"
-    if let due = task.due { line += " 📅 \(due.day)" + (due.time.map { " \($0)" } ?? "") }
-    if let done = task.doneAt { line += " ✅ \(done)" }
-    if let suggestion = task.suggestion { line += " 🤖 \(suggestion.source) \(suggestion.day)" }
+    var line = task.isHeading ? "### \(task.text)" : "- [\(task.status.rawValue)] \(task.text)"
+    if !task.isHeading {  // a heading carries no tokens
+      if let due = task.due { line += " 📅 \(due.day)" + (due.time.map { " \($0)" } ?? "") }
+      if let done = task.doneAt { line += " ✅ \(done)" }
+      if let suggestion = task.suggestion { line += " 🤖 \(suggestion.source) \(suggestion.day)" }
+    }
     let notes = task.notes.map { $0.split(separator: "\n", omittingEmptySubsequences: false) } ?? []
     return [line] + notes.map { $0.isEmpty ? "  >" : "  > \($0)" }
   }
