@@ -29,9 +29,9 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
 | **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right, with a clear-glass toggle beside it. |
 | **Pages** | Your own pages, one `##` category each. With one page (or none) the row is hidden and a header `+` adds a page. With two or more, a row of capsules (selected one is a white pill) plus `+`. Right-click a page to rename or delete it. See ADR 0008. |
-| **Headings** | A line made bold with no marker (`work`, `life`). Type `# ` at the start of a line, or right-click → Make Heading. |
-| **Items** | A `•` dot and monospace text. Click the dot to cross the line out, again to restore it. A due date shows on the right. |
-| **New line** | Return, a click below the last line, or ⌥Space. An empty page shows `Start typing`. |
+| **Headings** | A bold line with no marker (`work`, `life`). Type `# ` at the start of a line, or right-click → Heading. |
+| **Items** | One text view per page, as in Apple Notes (ADR 0010). `☐`/`☑` lines cross out when you click the box, `•` bullets, plain lines. Typing `[] `, `- ` or `# ` at line start converts it. A due date is the visible token `📅 2026-10-26`. |
+| **New line** | Return, a click below the last line, or ⌥Space (cursor at the end). An empty page shows `Start typing…`. |
 | **Decoration** | Faint line-art butterfly watermark in the bottom-right of the panel. It's optional and can be turned off. |
 
 ### 1.2 Requirements
@@ -164,6 +164,7 @@ glance: 1
 - `## name` starts a category. `suggested` is reserved for AI suggestions. It isn't counted on the ball and is shown as its own section with ✓/✕.
 - `📅 YYYY-MM-DD[ HH:mm]` is the due date and optional time. `✅ YYYY-MM-DD` is the completion date. `🤖 <source> <date>` marks a suggestion.
 - A line has a `kind`: `- [ ] text` is a checklist line (counted, can be crossed out), `- text` is a bullet, `### text` is a heading. Only checklist lines carry a marker status or tokens, and only they are counted. `- [` lines that are not a checkbox stay raw. See ADR 0009.
+- The panel edits a page as markdown lines through `replaceBody(of:with:)`: plain lines become raw entries, and a task that keeps its kind and text keeps its notes. See ADR 0010.
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
@@ -185,7 +186,7 @@ MarkdownSerializer.serialize(_ doc: GlanceDocument) -> String   // lossless for 
 
 // Task ops are mutating methods on GlanceDocument and throw TaskOpsError.
 add(_:category:due:) -> TaskID ; update(_:_ edit:) -> TaskID ; setStatus(_:_:today:) -> TaskID
-move(_:to:at:) -> TaskID ; remove(_:) ; removeCompleted(in:) -> Int ; addCategory ; renameCategory(_:to:) ; removeCategory ; reorderCategories
+move(_:to:at:) -> TaskID ; remove(_:) ; removeCompleted(in:) -> Int ; replaceBody(of:with:) ; bodyLines(of:) -> [String] ; addCategory ; renameCategory(_:to:) ; removeCategory ; reorderCategories
 suggest(_:due:source:today:) -> SuggestResult (.added(id) | .duplicate(of: id))   // dedupes against open tasks
 acceptSuggestion(_:into:) -> TaskID ; dismissSuggestion(_:)
 
