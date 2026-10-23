@@ -27,7 +27,8 @@ struct PanelView: View {
       if showsPageRow(pageCount: pages.count) { pageRow }
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
-          NotepadView(state: state, tasks: pageTasks, category: current)
+          NotepadView(
+            state: state, category: current, lines: state.document.bodyLines(of: current ?? ""))
           let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
           if !suggestions.isEmpty {
             SuggestedSection(
@@ -67,10 +68,6 @@ struct PanelView: View {
 
   /// The selected page, or the first one when it is gone; nil until the first line makes one.
   private var current: String? { pages.first { $0 == selectedPage } ?? pages.first }
-
-  private var pageTasks: [GlanceTask] {
-    state.document.categories.first { $0.name == current }?.tasks ?? []
-  }
 
   private var isNaming: Binding<Bool> {
     Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
