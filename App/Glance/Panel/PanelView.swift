@@ -19,6 +19,8 @@ struct PanelView: View {
   @Environment(\.openSettings) private var openSettings
   @State private var newText = ""
   @FocusState private var addFocused: Bool
+  @FocusState private var focus: LineID?
+  @State private var draftIsNote = false
   @AppStorage("showButterfly") private var showButterfly = true
   @AppStorage("clearGlass") private var clearGlass = false
 
@@ -34,16 +36,14 @@ struct PanelView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
           let tab = prefs.currentTab
-          let tasks = tab?.filter.tasks(in: state.document, now: .now) ?? []
           // The To-do tab keeps empty categories visible so they can still be managed.
           let showEmpty = tab?.isStatus == true && tab?.filter.statuses == [.todo]
+          let tasks = lines(of: tab, isTodoTab: showEmpty)
           if notepad {
             let names = Set(regularCategories.map(\.name))
-            VStack(alignment: .leading, spacing: 8) {
-              ForEach(tasks.filter { names.contains($0.category) }) {
-                TaskRow(state: state, task: $0)
-              }
-            }
+            NotepadView(
+              state: state, tasks: tasks.filter { names.contains($0.category) },
+              canAdd: showEmpty, category: addCategory, focus: $focus, draftIsNote: $draftIsNote)
           } else {
             ForEach(regularCategories, id: \.name) { category in
               let rows = tasks.filter { $0.category == category.name }
@@ -61,19 +61,49 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
       }
-      if let error = state.lastError {
+      if let error = state.lastError, error as? TaskOpsError != .emptyText {
         Text(String(describing: error)).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)
       }
-      addField
+      if !notepad { addField }
     }
-    .padding(16)
+    .padding(.horizontal, 22)
+    .padding(.vertical, 18)
     .background(alignment: .bottomTrailing) {
       if showButterfly {
         Butterfly().stroke(.primary, lineWidth: 1).opacity(0.07).frame(width: 70, height: 55)
           .padding(12).allowsHitTesting(false)
       }
     }
-    .onReceive(NotificationCenter.default.publisher(for: focusAddField)) { _ in addFocused = true }
+    .onReceive(NotificationCenter.default.publisher(for: focusAddField)) { _ in
+      addFocused = true
+      focus = .draft
+    }
+  }
+
+  /// In a notepad the To-do tab also lists checked lines, struck through, in file order.
+  private func lines(of tab: PanelTab?, isTodoTab: Bool) -> [GlanceTask] {
+    var filter = tab?.filter ?? TabFilter()
+    if notepad && isTodoTab { filter.statuses = [.todo, .completed] }
+    return filter.tasks(in: state.document, now: .now)
+  }
+
+  private var focusedIsNote: Bool {
+    if case .task(let id) = focus { return state.document.task(id)?.isNote ?? false }
+    return draftIsNote
+  }
+
+  /// Switches the focused line, or the next new line, between checklist item and bullet.
+  private func toggleKind() {
+    guard case .task(let id) = focus else {
+      draftIsNote.toggle()
+      return
+    }
+    state.perform {
+      try $0.update(id) {
+        $0.isNote.toggle()
+        if $0.isNote { ($0.status, $0.doneAt) = (.todo, nil) }
+      }
+    }
   }
 
   /// The last-used category, or the first regular one when it is gone.
@@ -136,6 +166,14 @@ struct PanelView: View {
       }
       HStack(spacing: 10) {
         Spacer()
+        if notepad {
+          Button(action: toggleKind) {
+            Image(systemName: focusedIsNote ? "checklist" : "list.bullet")
+              .foregroundStyle(.secondary)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(focusedIsNote ? "Make checklist item" : "Make bullet")
+        }
         Button {
           clearGlass.toggle()
         } label: {
@@ -165,18 +203,19 @@ private struct TabBar: View {
   private var current: PanelTab? { prefs.currentTab }
 
   var body: some View {
-    HStack(spacing: 4) {
+    HStack(spacing: 8) {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 0) {
           ForEach(prefs.tabs.filter { !$0.isHidden }) { tab in
             let selected = tab.id == current?.id
             Button(tab.name) { prefs.selectedTab = tab.id }
               .buttonStyle(.plain)
-              .font(.mono(12))
+              .font(.mono(11))
+              .lineLimit(1)
               // The selected pill is white in both modes, so its text stays black.
               .foregroundStyle(selected ? Color.black : Color.secondary)
-              .padding(.horizontal, 8)
-              .padding(.vertical, 4)
+              .padding(.horizontal, 11)
+              .padding(.vertical, 5)
               .background {
                 if selected {
                   Capsule().fill(Color.white.opacity(0.9))
@@ -190,6 +229,13 @@ private struct TabBar: View {
         .padding(2)
         .background(Capsule().fill(.quaternary))
       }
+      Button {
+        editing = PanelTab(name: "", filter: TabFilter())
+      } label: {
+        Image(systemName: "plus").foregroundStyle(.secondary)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("New tab")
       Menu {
         if let current { menu(for: current) }
         Divider()

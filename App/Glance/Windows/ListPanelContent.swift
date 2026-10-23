@@ -8,7 +8,7 @@ import SwiftUI
 
 /// Hosts T3's `PanelView` in a glass card that grows out of the ball's corner.
 struct ListPanelContent: View {
-  static let size = CGSize(width: 340, height: 520)
+  static let size = CGSize(width: 400, height: 560)
 
   let state: AppState
   let model: ListPanelModel

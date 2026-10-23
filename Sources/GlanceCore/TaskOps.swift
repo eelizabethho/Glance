@@ -256,7 +256,8 @@ public enum Counts {
   ) -> Int {
     let today = CalendarDay(now, calendar: calendar)
     return doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      !$0.isNote && ($0.status == .todo || $0.status == .pending) && $0.due.map { $0.day <= today } == true
+      !$0.isNote && ($0.status == .todo || $0.status == .pending)
+        && $0.due.map { $0.day <= today } == true
     }
   }
 }

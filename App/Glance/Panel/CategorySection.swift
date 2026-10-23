@@ -127,15 +127,6 @@ struct TaskRow: View {
   @State private var showingNotes = false
   @FocusState private var fieldFocused: Bool
 
-  private var symbol: String {
-    switch task.status {
-    case .todo: "square"
-    case .pending: "square.lefthalf.filled"
-    case .completed: "checkmark.square"
-    case .cancelled: "xmark.square"
-    }
-  }
-
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       row
@@ -163,7 +154,7 @@ struct TaskRow: View {
       Button {
         setStatus(task.status.toggled)
       } label: {
-        Image(systemName: symbol).font(.system(size: 13))
+        Image(systemName: task.checkSymbol).font(.system(size: 13))
       }
       .buttonStyle(.plain)
       .accessibilityLabel(
