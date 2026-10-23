@@ -6,10 +6,15 @@ import Testing
 struct PageTextTests {
   @Test func markdownLinesSurviveAToAttributedAndBack() {
     let lines = [
-      "### work", "- [ ] weekly report 📅 2026-10-26", "- [x] buy cases ✅ 2026-10-21",
+      "### work", "- [ ] weekly report 📅 2026-10-26", "- [x] buy cases",
       "- a bullet", "just a plain line", "", "- [", "- ",
     ]
     #expect(PageText.lines(from: PageText.attributed(from: lines)) == lines)
+  }
+
+  @Test func theDoneStampIsHiddenOnScreen() {
+    #expect(PageText.attributed(from: ["- [x] b ✅ 2026-10-21"]).string == "☑ b")
+    #expect(PageText.shown(["- [x] b ✅ 2026-10-21"]) == ["- [x] b"])
   }
 
   @Test func markersShowAsGlyphsAndHeadingsAreMarked() {

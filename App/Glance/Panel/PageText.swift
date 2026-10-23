@@ -44,10 +44,17 @@ enum PageText {
   static func display(_ line: String) -> (text: String, heading: Bool) {
     if line.hasPrefix("### "), line.count > 4 { return (String(line.dropFirst(4)), true) }
     for (markdown, glyph) in prefixes where line.hasPrefix(markdown) {
-      return (glyph + line.dropFirst(markdown.count), false)
+      // The done stamp is clutter on screen; replaceBody restores it from the unchanged line.
+      let rest = glyph == "☑ " ? line.replacing(doneStamp, with: "") : line
+      return (glyph + rest.dropFirst(markdown.count), false)
     }
     return (line, false)
   }
+
+  private static let doneStamp = /\ ✅ \d{4}-\d{2}-\d{2}/
+
+  /// `lines` as the editor shows and saves them, so a reload or save compares like with like.
+  static func shown(_ lines: [String]) -> [String] { Self.lines(from: attributed(from: lines)) }
 
   private static func markdown(_ paragraph: String, heading: Bool) -> String {
     if heading { return "### " + paragraph }
@@ -100,8 +107,12 @@ enum PageText {
     return found
   }
 
-  private static let markerIndent: CGFloat = ("☐ " as NSString)
-    .size(withAttributes: [.font: font(bold: false)]).width
+  /// The ☐/☑/• glyph is drawn larger than the text so it reads as a control.
+  private static let markerFont = NSFont.systemFont(ofSize: 16)
+  private static let checkboxWidth = ("☐" as NSString).size(withAttributes: [.font: markerFont])
+    .width
+  private static let markerIndent: CGFloat =
+    checkboxWidth + (" " as NSString).size(withAttributes: [.font: font(bold: false)]).width
 
   /// Derives every paragraph's look from its text: heading, marker, done, and date tokens.
   static func restyle(_ text: NSMutableAttributedString) {
@@ -118,8 +129,10 @@ enum PageText {
       let marker = marker(in: paragraph)
       let done = paragraph.hasPrefix("☑ ")
       let style = NSMutableParagraphStyle()
+      style.lineSpacing = 2
+      style.paragraphSpacing = 7
       if marker != nil { style.headIndent = markerIndent }
-      if isHeading { style.paragraphSpacingBefore = 8 }
+      if isHeading { style.paragraphSpacingBefore = 10 }
       var attributes = isHeading ? headingAttributes : bodyAttributes
       attributes[.paragraphStyle] = style
       if done {
@@ -128,14 +141,25 @@ enum PageText {
       }
       text.setAttributes(attributes, range: whole)
       if !isHeading { text.removeAttribute(.glanceHeading, range: whole) }
+      if marker != nil {
+        let glyph = NSRange(location: start, length: 1)
+        // Kerning pads every marker to the checkbox's width, so all line text starts in one column.
+        let width = (string.substring(with: glyph) as NSString)
+          .size(withAttributes: [.font: markerFont]).width
+        text.addAttributes(
+          [.font: markerFont, .baselineOffset: -1, .kern: checkboxWidth - width], range: glyph)
+        if done {
+          text.removeAttribute(.strikethroughStyle, range: NSRange(location: start, length: 2))
+        }
+      }
       if marker?.kind == .checklist,
         let token = [" 📅 ", " ✅ ", " 🤖 "].compactMap({
           (paragraph as NSString).range(of: $0).location
         })
         .filter({ $0 != NSNotFound }).min()
       {
-        text.addAttribute(
-          .foregroundColor, value: NSColor.secondaryLabelColor,
+        text.addAttributes(
+          [.foregroundColor: NSColor.secondaryLabelColor, .font: NSFont.systemFont(ofSize: 11)],
           range: NSRange(location: start + token, length: length - token))
       }
     }

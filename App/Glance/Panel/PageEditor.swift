@@ -71,6 +71,10 @@ struct PageEditor: NSViewRepresentable {
     init(_ parent: PageEditor) {
       self.parent = parent
       page = parent.page
+      // Quitting tears nothing down, so the last half second of typing would otherwise be lost.
+      NotificationCenter.default.addObserver(
+        forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+      ) { [weak self] _ in MainActor.assumeIsolated { self?.flush() } }
     }
 
     func edited() {
@@ -104,14 +108,16 @@ struct PageEditor: NSViewRepresentable {
         }
         page = new.page
         view.load(lines: new.lines)
-      } else if !unsaved, view.window?.firstResponder !== view, view.lines != new.lines {
+      } else if !unsaved, view.window?.firstResponder !== view,
+        view.lines != PageText.shown(new.lines)
+      {
         view.load(lines: new.lines)
       }
     }
 
     private func save(_ lines: [String], to page: String?) {
       let name = page ?? GlanceDocument.defaultCategory
-      guard parent.state.document.bodyLines(of: name) != lines else { return }
+      guard PageText.shown(parent.state.document.bodyLines(of: name)) != lines else { return }
       parent.state.perform { doc in
         if !doc.categories.contains(where: { $0.name == name }) { try doc.addCategory(name) }
         try doc.replaceBody(of: name, with: lines)
