@@ -113,7 +113,7 @@ struct NotepadView: View {
       Button {
         draftKind = draftKind.next
       } label: {
-        KindGlyph(kind: draftKind, done: false)
+        KindGlyph(kind: draftKind, done: false).foregroundStyle(.tertiary)
       }
       .buttonStyle(.plain)
       .frame(width: 16)
