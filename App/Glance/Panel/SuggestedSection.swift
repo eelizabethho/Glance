@@ -1,7 +1,7 @@
 import GlanceCore
 import SwiftUI
 
-/// The AI's suggestions: always shown while there are any, whatever the status tabs filter.
+/// The AI's suggestions: always shown while there are any.
 struct SuggestedSection: View {
   let state: AppState
   let tasks: [GlanceTask]

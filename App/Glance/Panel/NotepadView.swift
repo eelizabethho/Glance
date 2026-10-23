@@ -6,37 +6,24 @@ enum LineID: Hashable {
   case draft
 }
 
-/// "[] " at the start of a line makes a checklist item and "- " a bullet. Returns the kind and the rest.
-func lineShortcut(_ text: String) -> (isNote: Bool, text: String)? {
-  for (prefix, isNote) in [("[] ", false), ("[ ] ", false), ("- ", true)]
-  where text.hasPrefix(prefix) {
-    return (isNote, String(text.dropFirst(prefix.count)))
-  }
-  return nil
+private let focusNewLine = Notification.Name("GlanceFocusAddField")
+
+/// "# " at the start of a line makes it a heading. Returns the rest of the line.
+func headingShortcut(_ text: String) -> String? {
+  text.hasPrefix("# ") ? String(text.dropFirst(2)) : nil
 }
 
-extension GlanceTask {
-  var checkSymbol: String {
-    switch status {
-    case .todo: "square"
-    case .pending: "square.lefthalf.filled"
-    case .completed: "checkmark.square"
-    case .cancelled: "xmark.square"
-    }
-  }
-}
-
-/// A single-category list shown as a document: each line is a text field you type into directly.
+/// A page shown as a document: each line is a text field you type into directly.
 struct NotepadView: View {
   let state: AppState
   let tasks: [GlanceTask]
-  /// False hides the trailing empty line. `category` nil means the first one, made if missing.
-  let canAdd: Bool
+  /// nil means the first page, made if missing.
   let category: String?
-  let focus: FocusState<LineID?>.Binding
-  @Binding var draftIsNote: Bool
+  @FocusState private var focus: LineID?
+  @State private var draftOpen = false
   @State private var draftText = ""
-  /// The empty line sits below this task, or at the end when nil.
+  @State private var draftIsHeading = false
+  /// The new line sits below this task, or at the end when nil.
   @State private var draftAfter: TaskID?
 
   private enum Item: Identifiable {
@@ -52,7 +39,7 @@ struct NotepadView: View {
 
   private var items: [Item] {
     var items = tasks.map(Item.task)
-    if canAdd {
+    if draftOpen {
       let slot = draftAfter.flatMap { id in tasks.firstIndex { $0.id == id } }.map { $0 + 1 }
       items.insert(.draft, at: slot ?? items.endIndex)
     }
@@ -61,61 +48,86 @@ struct NotepadView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
+      if tasks.isEmpty && !draftOpen {
+        Text("Start typing").font(.mono(13)).foregroundStyle(.tertiary)
+      }
       ForEach(items) { item in
         switch item {
         case .task(let task):
           NotepadLine(
-            state: state, task: task, focus: focus,
-            returned: { newline(after: $0, isNote: task.isNote) }, deleted: { removed(task) })
+            state: state, task: task, focus: $focus,
+            returned: { open(after: $0) }, deleted: { removed(task) })
         case .draft:
           draftLine
         }
       }
-      if canAdd {
-        Color.clear.frame(height: 80).contentShape(Rectangle()).onTapGesture {
-          focus.wrappedValue = .draft
-        }
-      }
+      // Blank space below the last line starts a new one.
+      Color.clear.frame(height: 80).contentShape(Rectangle()).onTapGesture { open(after: nil) }
+    }
+    .background {
+      Button("New line") { open(after: nil) }
+        .keyboardShortcut(.space, modifiers: .option)
+        .opacity(0).accessibilityHidden(true)
+    }
+    .onReceive(NotificationCenter.default.publisher(for: focusNewLine)) { _ in
+      open(after: nil)
     }
   }
 
   private var draftLine: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
-      Marker(isNote: draftIsNote, symbol: "square", action: nil)
+      if !draftIsHeading { Marker(done: false, action: nil) }
       TextField(tasks.isEmpty ? "Start typing" : "", text: $draftText, axis: .vertical)
         .textFieldStyle(.plain)
-        .font(.mono(13))
-        .focused(focus, equals: .draft)
+        .font(.mono(13, bold: draftIsHeading))
+        .focused($focus, equals: .draft)
         .onChange(of: draftText) {
           if draftText.contains("\n") {
             draftText = draftText.replacing("\n", with: "")
-            commitDraft()
-          } else if let shortcut = lineShortcut(draftText) {
-            draftIsNote = shortcut.isNote
-            draftText = shortcut.text
+            commitDraft(reopen: true)
+          } else if let rest = headingShortcut(draftText) {
+            draftIsHeading = true
+            draftText = rest
           }
         }
-        .onSubmit(commitDraft)
+        .onChange(of: focus) { old, new in
+          if old == .draft, new != .draft { commitDraft(reopen: false) }
+        }
+        .onSubmit { commitDraft(reopen: true) }
         .onKeyPress(.delete, phases: .down) { _ in
           let above = draftAfter.flatMap { id in tasks.first { $0.id == id } } ?? tasks.last
           guard draftText.isEmpty, let above else { return .ignored }
-          draftAfter = nil
-          focus.wrappedValue = .task(above.id)
+          focus = .task(above.id)
           return .handled
         }
     }
   }
 
-  /// Saves the draft below its position, then opens the next empty line there.
-  private func commitDraft() {
-    let parsed = parseQuickAdd(draftText, now: .now, calendar: .current)
-    guard canAdd, !parsed.text.isEmpty else { return }
+  private func open(after id: TaskID?) {
+    draftOpen = true
+    draftText = ""
+    draftIsHeading = false
+    draftAfter = id
+    focus = .draft
+  }
+
+  /// Saves the draft below its position. With `reopen`, opens the next empty line there;
+  /// otherwise closes the draft.
+  private func commitDraft(reopen: Bool) {
+    let heading = draftIsHeading
+    let parsed =
+      heading
+      ? (text: draftText.trimmingCharacters(in: .whitespaces), due: nil)
+      : parseQuickAdd(draftText, now: .now, calendar: .current)
+    guard !parsed.text.isEmpty else {
+      if !reopen { draftOpen = false }
+      return
+    }
     let after = draftAfter
-    let isNote = draftIsNote
     var added: TaskID?
     state.perform { doc in
       var id = try doc.add(parsed.text, category: category, due: parsed.due)
-      id = try doc.update(id) { $0.isNote = isNote }
+      if heading { id = try doc.update(id) { $0.isHeading = true } }
       let name = doc.task(id)?.category ?? ""
       let siblings = doc.categories.first { $0.name == name }?.tasks ?? []
       if let after, let index = siblings.firstIndex(where: { $0.id == after }) {
@@ -124,44 +136,34 @@ struct NotepadView: View {
       added = id
     }
     guard state.lastError == nil, let added else { return }
-    draftText = ""
-    draftAfter = added
-    focus.wrappedValue = .draft
-  }
-
-  private func newline(after id: TaskID, isNote: Bool) {
-    draftText = ""
-    draftAfter = id
-    draftIsNote = isNote
-    focus.wrappedValue = .draft
+    if reopen { open(after: added) } else { draftOpen = false }
   }
 
   private func removed(_ task: GlanceTask) {
     let index = tasks.firstIndex { $0.id == task.id }
     state.perform { try $0.remove(task.id) }
-    focus.wrappedValue =
-      index.flatMap { $0 > 0 ? tasks[$0 - 1].id : nil }.map(LineID.task) ?? .draft
+    focus = index.flatMap { $0 > 0 ? tasks[$0 - 1].id : nil }.map(LineID.task)
   }
 }
 
-/// The checkbox of a checklist line, or the bullet of a note.
+/// The dot of a line; click to cross the line out or restore it.
 private struct Marker: View {
-  let isNote: Bool
-  let symbol: String
+  let done: Bool
   let action: (() -> Void)?
 
   var body: some View {
     Group {
-      if isNote {
-        Text("•").font(.mono(14))
-      } else if let action {
-        Button(action: action) { Image(systemName: symbol).font(.system(size: 14)) }
-          .buttonStyle(.plain)
+      if let action {
+        Button(action: action) { dot }.buttonStyle(.plain)
       } else {
-        Image(systemName: symbol).font(.system(size: 14)).foregroundStyle(.tertiary)
+        dot.foregroundStyle(.tertiary)
       }
     }
     .frame(width: 16)
+  }
+
+  private var dot: some View {
+    Text("•").font(.mono(14)).foregroundStyle(done ? .secondary : .primary)
   }
 }
 
@@ -185,17 +187,21 @@ private struct NotepadLine: View {
     _text = State(initialValue: task.text)
   }
 
+  /// A cancelled line from an old file reads as crossed out too.
   private var done: Bool { task.status == .completed || task.status == .cancelled }
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
-      Marker(isNote: task.isNote, symbol: task.checkSymbol) {
-        state.perform { try $0.setStatus(task.id, task.status.toggled, today: CalendarDay(.now)) }
+      if !task.isHeading {
+        Marker(done: done) {
+          state.perform {
+            try $0.setStatus(task.id, done ? .todo : .completed, today: CalendarDay(.now))
+          }
+        }
+        .accessibilityLabel(done ? "Restore \(task.text)" : "Cross out \(task.text)")
       }
-      .accessibilityLabel(
-        task.status == .completed ? "Mark \(task.text) to-do" : "Complete \(task.text)")
       if done {
-        // TextField ignores strikethrough on macOS, so a checked line is plain text until unchecked.
+        // TextField ignores strikethrough on macOS, so a crossed-out line is plain text until restored.
         Text(task.text).font(.mono(13)).strikethrough().foregroundStyle(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
       } else {
@@ -206,7 +212,7 @@ private struct NotepadLine: View {
       }
     }
     .contextMenu {
-      Button(task.isNote ? "Make Checklist Item" : "Make Bullet") { setKind(!task.isNote) }
+      Button(task.isHeading ? "Make Line" : "Make Heading") { setHeading(!task.isHeading) }
       Button("Delete", role: .destructive) { deleted() }
     }
   }
@@ -214,7 +220,7 @@ private struct NotepadLine: View {
   private var field: some View {
     TextField("", text: $text, axis: .vertical)
       .textFieldStyle(.plain)
-      .font(.mono(13))
+      .font(.mono(13, bold: task.isHeading))
       .focused(focus, equals: .task(task.id))
       .onChange(of: text) {
         // A wrapping field can take a typed newline; a line in todo.md never may, so it means Return.
@@ -223,9 +229,9 @@ private struct NotepadLine: View {
           if let id = commit() { returned(id) }
           return
         }
-        guard let shortcut = lineShortcut(text) else { return }
-        text = shortcut.text
-        if shortcut.isNote != task.isNote { setKind(shortcut.isNote) }
+        guard let rest = headingShortcut(text) else { return }
+        text = rest
+        if !task.isHeading { setHeading(true) }
       }
       .onChange(of: focus.wrappedValue) { old, _ in
         if old == .task(task.id), focus.wrappedValue != old { blurred() }
@@ -236,14 +242,15 @@ private struct NotepadLine: View {
         deleted()
         return .handled
       }
-      .accessibilityLabel(task.isNote ? "Bullet" : "Checklist item")
+      .accessibilityLabel(task.isHeading ? "Heading" : "Line")
   }
 
-  private func setKind(_ isNote: Bool) {
+  /// A heading has no status or due date in the file, so both are cleared.
+  private func setHeading(_ isHeading: Bool) {
     state.perform {
       try $0.update(task.id) {
-        $0.isNote = isNote
-        if isNote { ($0.status, $0.doneAt) = (.todo, nil) }
+        $0.isHeading = isHeading
+        if isHeading { ($0.status, $0.doneAt, $0.due) = (.todo, nil, nil) }
       }
     }
   }

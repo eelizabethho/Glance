@@ -28,10 +28,10 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | **Ball** | Frosted circle under the menu bar, top-right, showing the open count (e.g. `8`). Always on top. |
 | **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
 | **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right, with a clear-glass toggle beside it. |
-| **Tabs** | A segmented control: `To-do` · `Pending` · `Completed` · `Cancelled`. Active tab is a white pill. |
-| **Categories** | Collapsible groups with a `•`/`▾` marker and a bold lowercase label (`work`, `life`, `content`, `study`). With 0 or 1 regular categories the panel is a notepad: tasks render flat, with no header and no category menu in the add field. |
-| **Items** | Square checkbox and monospace text. A due date reads like `Hw 6 – ddl 10/25`. |
-| **Add input** | `Add new todo` field with a `+` at the bottom. |
+| **Pages** | Your own pages, one `##` category each. With one page (or none) the row is hidden and a header `+` adds a page. With two or more, a row of capsules (selected one is a white pill) plus `+`. Right-click a page to rename or delete it. See ADR 0008. |
+| **Headings** | A line made bold with no marker (`work`, `life`). Type `# ` at the start of a line, or right-click → Make Heading. |
+| **Items** | A `•` dot and monospace text. Click the dot to cross the line out, again to restore it. A due date shows on the right. |
+| **New line** | Return, a click below the last line, or ⌥Space. An empty page shows `Start typing`. |
 | **Decoration** | Faint line-art butterfly watermark in the bottom-right of the panel. It's optional and can be turned off. |
 
 ### 1.2 Requirements
@@ -39,9 +39,9 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 **Must have (v1)**
 - **R1 Ball.** Frosted circle showing the **To-do count only** (Pending isn't counted). Starts top-right under the menu bar. **Draggable** anywhere on screen. It stays where it's dropped and remembers its position across launches. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
 - **R2 Click behaviour.** Clicking the ball opens the panel and clicking it again closes it. There is no hover behaviour and no fade.
-- **R3 Tabs.** The four status tabs are fixed (they can be renamed or hidden). The user can also add **custom tabs**, which are saved filters by category, status, or due date (e.g. "Today", "School"). A built-in **Today** preset shows tasks due today or overdue.
-- **R4 Categories.** Create, rename, reorder, collapse, and delete, each with an optional colour dot.
-- **R5 Tasks.** Add, edit inline, check off, set status, drag to reorder or move between categories, and delete.
+- **R3 Pages.** No built-in tabs. The user adds, renames, and deletes pages, and each is its own notepad. The selected page is remembered.
+- **R4 Headings.** Any line can be a heading (`### text`) that titles a group inside a page. Headings are never counted or due.
+- **R5 Lines.** Add, edit inline, cross out (`completed`) and restore, and delete.
 - **R6 Per-task notes.** Click a task to expand a short notes field (multi-line, links are clickable). There's no separate notes page in v1.
 - **R7 Due dates and reminders.** A task can have a due date and an optional time. Glance shows a **macOS notification** when a task is due (at the set time, or 9:00 for date-only tasks). The ball gets a **soft accent tint** when something is due today or overdue. Notifications can be turned off in Settings.
 - **R8 One ongoing list.** The date in the header is just today's date. Tasks stay until they're checked off, and completed tasks move to the Completed tab with their completion date.
@@ -107,7 +107,7 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 **Why one Swift codebase:** the app and the MCP server share a single parser and serializer, so the panel and the AI can never disagree about the file format. It also means one language, one test suite, and one CI job.
 
 **Rules**
-- The file is the database. Only UI state lives elsewhere (`UserDefaults`): ball position, collapsed categories, active tab, and custom tab definitions.
+- The file is the database. Only UI state lives elsewhere (`UserDefaults`): ball position, the selected page.
 - Every write is **atomic** (write to a temp file, then `replaceItemAt`). Before writing, re-read the file, apply the operation to the latest content, and write only if the hash still matches. If it doesn't match, retry. The app ignores watcher events caused by its own writes.
 - **Unknown lines are preserved.** A file edited by hand or by an AI must never lose content.
 - **No network code at all.** No telemetry, no analytics, and no listening ports.
@@ -154,16 +154,16 @@ glance: 1
 - [ ] book friday dinner 🤖 claude-desktop 2026-10-20
 ```
 
-| Marker | Status | Tab |
-|---|---|---|
-| `[ ]` | todo | To-do (counted on the ball) |
-| `[/]` | pending | Pending |
-| `[x]` | completed | Completed |
-| `[-]` | cancelled | Cancelled |
+| Marker | Status |
+|---|---|
+| `[ ]` | todo (plain line, counted on the ball) |
+| `[/]` | pending (plain line) |
+| `[x]` | completed (crossed out) |
+| `[-]` | cancelled (crossed out) |
 
 - `## name` starts a category. `suggested` is reserved for AI suggestions. It isn't counted on the ball and is shown as its own section with ✓/✕.
 - `📅 YYYY-MM-DD[ HH:mm]` is the due date and optional time. `✅ YYYY-MM-DD` is the completion date. `🤖 <source> <date>` marks a suggestion.
-- `- text` (no checkbox) is a bullet note, `isNote = true`. Notes are never counted. See ADR 0007.
+- `### text` inside a category is a heading line, `isHeading = true`. It has no marker or tokens, and is never counted. A `- text` line with no checkbox is kept as a raw line. See ADR 0008.
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
@@ -176,7 +176,7 @@ struct DueDate { day: CalendarDay; time: TimeOfDay? }
 struct Suggestion { source: String; day: CalendarDay }      // the 🤖 token
 struct TaskID { rawValue: String }                          // "category/text#occurrence"
 struct GlanceTask: Identifiable { id, category (read-only); text, status, due: DueDate?, doneAt: CalendarDay?,
-                                  notes: String?, suggestion: Suggestion?, isNote: Bool }
+                                  notes: String?, suggestion: Suggestion?, isHeading: Bool }
 struct Category { name (read-only); tasks: [GlanceTask]; isSuggested }
 struct GlanceDocument { categories (read-only); tasks; task(_ id:) }   // + preserved unknown lines
 
@@ -343,8 +343,8 @@ T0 Foundation ──► T1 MCP server ──┐
 **Done when:** the ball stays visible over fullscreen apps and across Spaces, hovering doesn't flicker, and idle CPU is about 0%.
 
 ### T3: List panel UI
-- [ ] Header (date and gear), status tabs, custom filter tabs (create, edit, reorder) with a Today preset
-- [ ] Categories (collapse, colour dot, rename, reorder) and task rows (check, inline edit, context menu for status, due date, and delete)
+- [ ] Header (date, glass toggle, gear), page row (add, rename, delete)
+- [ ] Notepad lines (cross out, inline edit, headings, context menu for heading and delete)
 - [ ] Per-task notes that expand on click, plus drag and drop to reorder or move tasks
 - [ ] Add-task field with a category picker and quick due-date entry (e.g. typing `ddl 10/25` or `📅` sets the date)
 - [ ] Suggested section with ✓/✕, the butterfly watermark (toggle), and the Settings window (fade opacity and delay, notifications, launch at login, shortcut, Connect Claude Desktop)

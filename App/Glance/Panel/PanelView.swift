@@ -7,56 +7,31 @@ extension Font {
   }
 }
 
-private let focusAddField = Notification.Name("GlanceFocusAddField")
+/// The page row shows once there is more than one page.
+func showsPageRow(pageCount: Int) -> Bool { pageCount > 1 }
 
-/// A document with at most one regular category reads as a notepad: no headers, no category menu.
-func isNotepad(regularCategoryCount: Int) -> Bool { regularCategoryCount <= 1 }
-
-/// The list: date header, tabs, then the active tab's tasks grouped by category.
+/// The panel: date header, an optional row of pages, then the current page as a notepad.
 struct PanelView: View {
   let state: AppState
-  @State private var prefs: PanelPrefs
   @Environment(\.openSettings) private var openSettings
-  @State private var newText = ""
-  @FocusState private var addFocused: Bool
-  @FocusState private var focus: LineID?
-  @State private var draftIsNote = false
+  @AppStorage("selectedPage") private var selectedPage = ""
   @AppStorage("showButterfly") private var showButterfly = true
   @AppStorage("clearGlass") private var clearGlass = false
-
-  init(state: AppState, prefs: PanelPrefs = PanelPrefs()) {
-    self.state = state
-    _prefs = State(initialValue: prefs)
-  }
+  /// nil when closed; `old` is nil when adding a page and the page's name when renaming it.
+  @State private var naming: (old: String?, name: String)?
+  @State private var deleting: String?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       header
-      TabBar(prefs: prefs, categories: regularCategories.map(\.name))
+      if showsPageRow(pageCount: pages.count) { pageRow }
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
-          let tab = prefs.currentTab
-          // The To-do tab keeps empty categories visible so they can still be managed.
-          let showEmpty = tab?.isStatus == true && tab?.filter.statuses == [.todo]
-          let tasks = lines(of: tab, isTodoTab: showEmpty)
-          if notepad {
-            let names = Set(regularCategories.map(\.name))
-            NotepadView(
-              state: state, tasks: tasks.filter { names.contains($0.category) },
-              canAdd: showEmpty, category: addCategory, focus: $focus, draftIsNote: $draftIsNote)
-          } else {
-            ForEach(regularCategories, id: \.name) { category in
-              let rows = tasks.filter { $0.category == category.name }
-              if showEmpty || !rows.isEmpty {
-                CategorySection(state: state, prefs: prefs, name: category.name, tasks: rows)
-              }
-            }
-          }
+          NotepadView(state: state, tasks: pageTasks, category: current)
           let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
           if !suggestions.isEmpty {
             SuggestedSection(
-              state: state, tasks: suggestions, defaultCategory: addCategory,
-              categories: regularCategories.map(\.name))
+              state: state, tasks: suggestions, defaultCategory: current, categories: pages)
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,7 +39,6 @@ struct PanelView: View {
       if let error = state.lastError, error as? TaskOpsError != .emptyText {
         Text(String(describing: error)).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)
       }
-      if !notepad { addField }
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 18)
@@ -74,88 +48,64 @@ struct PanelView: View {
           .padding(12).allowsHitTesting(false)
       }
     }
-    .onReceive(NotificationCenter.default.publisher(for: focusAddField)) { _ in
-      addFocused = true
-      focus = .draft
+    .alert(naming?.old == nil ? "New Page" : "Rename Page", isPresented: isNaming) {
+      TextField("Name", text: Binding(get: { naming?.name ?? "" }, set: { naming?.name = $0 }))
+      Button("Cancel", role: .cancel) {}
+      Button(naming?.old == nil ? "Add" : "Rename") { saveName() }
+    }
+    .confirmationDialog(
+      deleting.map { deleteCategoryTitle($0, in: state.document) } ?? "",
+      isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+    ) {
+      Button("Delete", role: .destructive) { deleting.map(deletePage) }
     }
   }
 
-  /// In a notepad the To-do tab also lists checked lines, struck through, in file order.
-  private func lines(of tab: PanelTab?, isTodoTab: Bool) -> [GlanceTask] {
-    var filter = tab?.filter ?? TabFilter()
-    if notepad && isTodoTab { filter.statuses = [.todo, .completed] }
-    return filter.tasks(in: state.document, now: .now)
+  private var pages: [String] {
+    state.document.categories.filter { !$0.isSuggested }.map(\.name)
   }
 
-  private var focusedIsNote: Bool {
-    if case .task(let id) = focus { return state.document.task(id)?.isNote ?? false }
-    return draftIsNote
+  /// The selected page, or the first one when it is gone; nil until the first line makes one.
+  private var current: String? { pages.first { $0 == selectedPage } ?? pages.first }
+
+  private var pageTasks: [GlanceTask] {
+    state.document.categories.first { $0.name == current }?.tasks ?? []
   }
 
-  /// Switches the focused line, or the next new line, between checklist item and bullet.
-  private func toggleKind() {
-    guard case .task(let id) = focus else {
-      draftIsNote.toggle()
-      return
+  private var isNaming: Binding<Bool> {
+    Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
+  }
+
+  private var addPage: some View {
+    Button {
+      naming = (nil, "")
+    } label: {
+      Image(systemName: "plus").foregroundStyle(.secondary)
     }
-    state.perform {
-      try $0.update(id) {
-        $0.isNote.toggle()
-        if $0.isNote { ($0.status, $0.doneAt) = (.todo, nil) }
-      }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Add page")
+  }
+
+  private func saveName() {
+    guard let (old, typed) = naming else { return }
+    let name = typed.trimmingCharacters(in: .whitespaces)
+    state.perform { doc in
+      if let old { try doc.renameCategory(old, to: name) } else { try doc.addCategory(name) }
     }
+    if state.lastError == nil { selectedPage = name }
   }
 
-  /// The last-used category, or the first regular one when it is gone.
-  private var addCategory: String? {
-    let names = regularCategories.map(\.name)
-    return names.first { $0 == prefs.addCategory } ?? names.first
+  private func deletePage(_ name: String) {
+    state.perform { try $0.removeCategory(name) }
   }
 
-  private var addField: some View {
-    HStack(spacing: 6) {
-      TextField("Add new todo", text: $newText)
-        .textFieldStyle(.plain)
-        .font(.mono(13))
-        .focused($addFocused)
-        .onSubmit { submit() }
-      if !notepad {
-        Menu(addCategory ?? "") {
-          ForEach(regularCategories, id: \.name) { category in
-            Button(category.name) { prefs.addCategory = category.name }
-          }
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .font(.mono(12))
-        .accessibilityLabel("Category for new todo")
-      }
-      Button {
-        submit()
-      } label: {
-        Image(systemName: "plus").font(.mono(13))
-      }
-      .buttonStyle(.plain)
-      .accessibilityLabel("Add todo")
+  /// An empty page goes without asking.
+  private func requestDelete(_ page: String) {
+    if state.document.categories.first(where: { $0.name == page })?.tasks.isEmpty == true {
+      deletePage(page)
+    } else {
+      deleting = page
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 9)
-    .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
-  }
-
-  private var notepad: Bool { isNotepad(regularCategoryCount: regularCategories.count) }
-
-  private func submit() {
-    let parsed = parseQuickAdd(newText, now: .now, calendar: .current)
-    state.perform { try $0.add(parsed.text, category: addCategory, due: parsed.due) }
-    if state.lastError == nil {
-      newText = ""
-      addFocused = true
-    }
-  }
-
-  private var regularCategories: [GlanceCore.Category] {
-    state.document.categories.filter { !$0.isSuggested }
   }
 
   private var header: some View {
@@ -166,14 +116,7 @@ struct PanelView: View {
       }
       HStack(spacing: 10) {
         Spacer()
-        if notepad {
-          Button(action: toggleKind) {
-            Image(systemName: focusedIsNote ? "checklist" : "list.bullet")
-              .foregroundStyle(.secondary)
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(focusedIsNote ? "Make checklist item" : "Make bullet")
-        }
+        if !showsPageRow(pageCount: pages.count) { addPage }
         Button {
           clearGlass.toggle()
         } label: {
@@ -192,23 +135,15 @@ struct PanelView: View {
       }
     }
   }
-}
 
-/// Segmented control of every visible tab; the active one is a pill.
-private struct TabBar: View {
-  @Bindable var prefs: PanelPrefs
-  let categories: [String]
-  @State private var editing: PanelTab?
-
-  private var current: PanelTab? { prefs.currentTab }
-
-  var body: some View {
+  /// A capsule per page; the selected one is a white pill. Right-click to rename or delete.
+  private var pageRow: some View {
     HStack(spacing: 8) {
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 0) {
-          ForEach(prefs.tabs.filter { !$0.isHidden }) { tab in
-            let selected = tab.id == current?.id
-            Button(tab.name) { prefs.selectedTab = tab.id }
+          ForEach(pages, id: \.self) { page in
+            let selected = page == current
+            Button(page) { selectedPage = page }
               .buttonStyle(.plain)
               .font(.mono(11))
               .lineLimit(1)
@@ -223,104 +158,16 @@ private struct TabBar: View {
                 }
               }
               .accessibilityAddTraits(selected ? .isSelected : [])
-              .contextMenu { menu(for: tab) }
+              .contextMenu {
+                Button("Rename…") { naming = (page, page) }
+                Button("Delete…", role: .destructive) { requestDelete(page) }
+              }
           }
         }
         .padding(2)
         .background(Capsule().fill(.quaternary))
       }
-      Menu {
-        if let current { menu(for: current) }
-        Divider()
-        Button("New Tab…") { editing = PanelTab(name: "", filter: TabFilter()) }
-        ForEach(prefs.tabs.filter(\.isHidden)) { tab in
-          Button("Show \(tab.name)") { update(tab.id) { $0.isHidden = false } }
-        }
-      } label: {
-        Image(systemName: "ellipsis")
-      }
-      .menuStyle(.borderlessButton)
-      .menuIndicator(.hidden)
-      .fixedSize()
-      .accessibilityLabel("Tab options")
+      addPage
     }
-    .popover(item: $editing) { tab in
-      TabEditor(tab: tab, categories: categories) { saved in
-        if prefs.tabs.contains(where: { $0.id == saved.id }) {
-          update(saved.id) { $0 = saved }
-        } else {
-          prefs.tabs.append(saved)
-          prefs.selectedTab = saved.id
-        }
-      }
-    }
-  }
-
-  @ViewBuilder private func menu(for tab: PanelTab) -> some View {
-    Button(tab.isStatus ? "Rename “\(tab.name)”…" : "Edit “\(tab.name)”…") { editing = tab }
-    Button("Move Left") { prefs.tabs = prefs.tabs.moving(tab, by: -1) }
-    Button("Move Right") { prefs.tabs = prefs.tabs.moving(tab, by: 1) }
-    if tab.isStatus {
-      Button("Hide “\(tab.name)”") { update(tab.id) { $0.isHidden = true } }
-    } else {
-      Button("Delete “\(tab.name)”", role: .destructive) {
-        prefs.tabs.removeAll { $0.id == tab.id }
-      }
-    }
-  }
-
-  private func update(_ id: UUID, _ change: (inout PanelTab) -> Void) {
-    guard let index = prefs.tabs.firstIndex(where: { $0.id == id }) else { return }
-    change(&prefs.tabs[index])
-  }
-}
-
-private struct TabEditor: View {
-  @State var tab: PanelTab
-  let categories: [String]
-  let save: (PanelTab) -> Void
-  @Environment(\.dismiss) private var dismiss
-
-  var body: some View {
-    Form {
-      TextField("Name", text: $tab.name)
-      if !tab.isStatus {
-        Section("Categories (none means all)") {
-          ForEach(categories, id: \.self) { Toggle($0, isOn: $tab.filter.categories.has($0)) }
-        }
-        Section("Status (none means all)") {
-          ForEach(TaskStatus.allCases, id: \.self) {
-            Toggle($0.title, isOn: $tab.filter.statuses.has($0))
-          }
-        }
-        Picker("Due", selection: $tab.filter.due) {
-          Text("Any").tag(TabFilter.Due?.none)
-          Text("Today or overdue").tag(TabFilter.Due?.some(.todayOrOverdue))
-          Text("Overdue").tag(TabFilter.Due?.some(.overdue))
-        }
-      }
-      HStack {
-        Spacer()
-        Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-        Button("Save") {
-          tab.name = tab.name.trimmingCharacters(in: .whitespaces)
-          save(tab)
-          dismiss()
-        }
-        .keyboardShortcut(.defaultAction)
-        .disabled(tab.name.trimmingCharacters(in: .whitespaces).isEmpty)
-      }
-    }
-    .padding()
-    .frame(width: 280)
-  }
-}
-
-extension Binding {
-  /// A toggle for one member of a set.
-  func has<Element: Hashable>(_ element: Element) -> Binding<Bool> where Value == Set<Element> {
-    Binding<Bool>(
-      get: { wrappedValue.contains(element) },
-      set: { if $0 { wrappedValue.insert(element) } else { wrappedValue.remove(element) } })
   }
 }

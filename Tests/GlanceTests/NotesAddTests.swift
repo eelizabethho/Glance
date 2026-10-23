@@ -40,27 +40,3 @@ struct QuickAddTests {
     #expect(parsed("plain") == ("plain", nil))
   }
 }
-
-struct LinkifiedTests {
-  @Test func urlBecomesLinkRun() {
-    let result = linkified("see https://example.com/conf")
-    #expect(result.runs.contains { $0.link == URL(string: "https://example.com/conf") })
-    #expect(linkified("no links").runs.allSatisfy { $0.link == nil })
-  }
-}
-
-struct AddCategoryPrefTests {
-  @Test func roundTrips() throws {
-    let name = "glance-test-\(UUID())"
-    let store = try #require(UserDefaults(suiteName: name))
-    defer {
-      store.removePersistentDomain(forName: name)
-      try? FileManager.default.removeItem(
-        at: URL.libraryDirectory.appending(path: "Preferences/\(name).plist"))
-    }
-    let prefs = PanelPrefs(defaults: store)
-    #expect(prefs.addCategory == nil)
-    prefs.addCategory = "study"
-    #expect(PanelPrefs(defaults: store).addCategory == "study")
-  }
-}

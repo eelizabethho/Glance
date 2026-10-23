@@ -1,6 +1,6 @@
 # 0007: Bullet lines in `todo.md`
 
-Status: accepted. This is a `contract-change` to the GlanceCore API frozen in PLAN §5.
+Status: superseded by 0008. This is a `contract-change` to the GlanceCore API frozen in PLAN §5.
 
 ## Context
 
