@@ -18,7 +18,7 @@
 
 ## 1. Product spec
 
-**Glance** is a small, always-available **to-do widget for the Mac**, and it's **fully local**. A frosted glass ball in the top-right corner shows how many tasks are left. Hovering over it opens a translucent panel with your list, and moving away fades the panel so it doesn't cover your work. The list is a plain Markdown file, so the owner's AI apps can add and suggest tasks through a local MCP server ("add 'book friday dinner' to my to-do").
+**Glance** is a small, always-available **to-do widget for the Mac**, and it's **fully local**. A frosted glass ball in the top-right corner shows how many tasks are left. Clicking it opens and closes a translucent panel with your list. The list is a plain Markdown file, so the owner's AI apps can add and suggest tasks through a local MCP server ("add 'book friday dinner' to my to-do").
 
 ### 1.1 Reference screenshots
 These are in `docs/reference/`. The owner will provide them; ask if they're missing.
@@ -26,20 +26,19 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | Element | Detail |
 |---|---|
 | **Ball** | Frosted circle under the menu bar, top-right, showing the open count (e.g. `8`). Always on top. |
-| **Hover → panel** | The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
+| **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
 | **Header** | Date in light grey, centred (`October 20, Tuesday`). Settings gear at top-right. |
 | **Tabs** | A segmented control: `To-do` · `Pending` · `Completed` · `Cancelled`. Active tab is a white pill. |
 | **Categories** | Collapsible groups with a `•`/`▾` marker and a bold lowercase label (`work`, `life`, `content`, `study`). |
 | **Items** | Square checkbox and monospace text. A due date reads like `Hw 6 – ddl 10/25`. |
 | **Add input** | `Add new todo` field with a `+` at the bottom. |
-| **Fade** | When the cursor leaves, the panel fades to low opacity, then collapses back to the ball. |
 | **Decoration** | Faint line-art butterfly watermark in the bottom-right of the panel. It's optional and can be turned off. |
 
 ### 1.2 Requirements
 
 **Must have (v1)**
-- **R1 Ball.** Frosted circle showing the **To-do count only** (Pending isn't counted). Starts top-right under the menu bar. **Draggable**, snaps to the nearest corner, and remembers its position. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
-- **R2 Hover behaviour.** Hovering opens the panel. When the cursor leaves, the panel fades (default opacity 0.3 after about 600 ms), then collapses to the ball. The fade opacity and delay can be changed in Settings. While the input field has focus, the panel stays open.
+- **R1 Ball.** Frosted circle showing the **To-do count only** (Pending isn't counted). Starts top-right under the menu bar. **Draggable** anywhere on screen. It stays where it's dropped and remembers its position across launches. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
+- **R2 Click behaviour.** Clicking the ball opens the panel and clicking it again closes it. There is no hover behaviour and no fade.
 - **R3 Tabs.** The four status tabs are fixed (they can be renamed or hidden). The user can also add **custom tabs**, which are saved filters by category, status, or due date (e.g. "Today", "School"). A built-in **Today** preset shows tasks due today or overdue.
 - **R4 Categories.** Create, rename, reorder, collapse, and delete, each with an optional colour dot.
 - **R5 Tasks.** Add, edit inline, check off, set status, drag to reorder or move between categories, and delete.
@@ -63,8 +62,8 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | Platform | **macOS 26 Tahoe only.** Fully local, and nothing leaves the MacBook. |
 | Tech | **Native Swift / SwiftUI.** Apple's native Liquid Glass material, not a web view. |
 | Font | **JetBrains Mono** (bundled, OFL licence). Weights 400 for items and 700 for category labels. |
-| Ball | Frosted circle with the count. Starts top-right and can be dragged to any corner. |
-| Panel opening | Hover opens it, leaving fades it, then it collapses. |
+| Ball | Frosted circle with the count. Starts top-right and can be dragged anywhere and stays there. |
+| Panel opening | Click the ball to open or close it. |
 | Count | To-do tasks only. |
 | Tabs | Four status tabs plus user-defined filter tabs. |
 | Notes | Notes on each task only. |

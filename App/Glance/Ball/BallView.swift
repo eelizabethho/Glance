@@ -27,6 +27,6 @@ struct BallView: View {
     .accessibilityLabel(
       "\(state.todoCount) to-do tasks" + (state.dueCount > 0 ? ", \(state.dueCount) due" : "")
     )
-    .accessibilityHint("Hover to open your list")
+    .accessibilityHint("Click to open your list")
   }
 }

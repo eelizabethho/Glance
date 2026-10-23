@@ -1,7 +1,7 @@
 import CoreGraphics
 
-/// A screen corner the ball snaps to. The raw value is what `UserDefaults` stores.
-enum Corner: String {
+/// A screen corner. It picks which side of the ball the list opens on.
+enum Corner {
   case topLeft, topRight, bottomLeft, bottomRight
 
   var isTop: Bool { self == .topLeft || self == .topRight }
@@ -28,5 +28,12 @@ enum Corner: String {
     CGPoint(
       x: isRight ? ball.maxX - size.width : ball.minX,
       y: isTop ? ball.minY - size.height : ball.maxY)
+  }
+
+  /// `origin` moved the least needed to keep a window of `size` inside `rect`.
+  static func clamp(_ origin: CGPoint, size: CGSize, in rect: CGRect) -> CGPoint {
+    CGPoint(
+      x: min(max(origin.x, rect.minX), max(rect.minX, rect.maxX - size.width)),
+      y: min(max(origin.y, rect.minY), max(rect.minY, rect.maxY - size.height)))
   }
 }

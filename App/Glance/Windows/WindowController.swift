@@ -9,21 +9,26 @@ final class GlancePanel: NSPanel {
   override func animationResizeTime(_ newFrame: NSRect) -> TimeInterval { 0.2 }
 }
 
-/// Drags its window with the mouse and reports moves and the drop.
+/// Drags its window with the mouse. Reports moves and the drop, or a click if the mouse barely moved.
 final class DragHostingView<Content: View>: NSHostingView<Content> {
   var onMove: () -> Void = {}
   var onDrop: () -> Void = {}
+  var onClick: () -> Void = {}
+  private var dragged = false
   private var start: (mouse: CGPoint, origin: CGPoint)?
 
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
   override func mouseDown(with event: NSEvent) {
     start = (NSEvent.mouseLocation, window?.frame.origin ?? .zero)
+    dragged = false
   }
 
   override func mouseDragged(with event: NSEvent) {
     guard let start else { return }
     let mouse = NSEvent.mouseLocation
+    if !dragged && hypot(mouse.x - start.mouse.x, mouse.y - start.mouse.y) <= 3 { return }
+    dragged = true
     window?.setFrameOrigin(
       CGPoint(
         x: start.origin.x + mouse.x - start.mouse.x, y: start.origin.y + mouse.y - start.mouse.y)
@@ -33,31 +38,24 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
 
   override func mouseUp(with event: NSEvent) {
     start = nil
-    onDrop()
+    if dragged { onDrop() } else { onClick() }
   }
 }
 
-/// Owns the ball and list panels and runs `HoverMachine` between them.
-@Observable final class WindowController: NSObject, NSWindowDelegate {
-  /// Invisible hit area around each panel's content, so crossing from ball to list never leaves.
+/// Owns the ball and list panels. Clicking the ball opens and closes the list.
+@Observable final class WindowController: NSObject {
+  /// Invisible hit area around each panel's content, so the ball's edge is easy to hit.
   static let buffer: CGFloat = 6
-  static let cornerKey = "ballCorner"
-  static let fadeOpacityKey = "fadeOpacity"
-  static let fadeDelayKey = "fadeDelay"
+  static let originKey = "ballOrigin"
 
   private let defaults: UserDefaults
   private let ball: GlancePanel
   private let list: GlancePanel
   private let model = ListPanelModel()
-  private var ballArea: NSTrackingArea?
-  private var machine = HoverMachine()
-  private var timerTask: Task<Void, Never>?
-  private var overBall = false
-  private var overList = false
+  private var open = false
   private(set) var hidden = false
 
   init(state: AppState, defaults: UserDefaults = .standard) {
-    defaults.register(defaults: [Self.fadeOpacityKey: 0.3, Self.fadeDelayKey: 0.6])
     self.defaults = defaults
     let ballView = DragHostingView(rootView: BallView(state: state).padding(Self.buffer).hitArea())
     ball = Self.panel(
@@ -73,14 +71,16 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
     list.keyable = true
     list.setAccessibilityLabel("Glance list")
     list.becomesKeyOnlyIfNeeded = true  // only a click in the text field takes focus
-    list.delegate = self
     ballView.onMove = { [weak self] in self?.placeList() }
-    ballView.onDrop = { [weak self] in self?.snap() }
-    ballArea = track(ballView)
-    track(listView)
+    ballView.onDrop = { [weak self] in self?.drop() }
+    ballView.onClick = { [weak self] in self?.toggle() }
 
-    let corner = defaults.string(forKey: Self.cornerKey).flatMap(Corner.init) ?? .topRight
-    ball.setFrameOrigin(corner.origin(for: ball.frame.size, in: Self.screenRect(NSScreen.main)))
+    let rect = Self.screenRect(NSScreen.main)
+    let saved = defaults.string(forKey: Self.originKey).map(NSPointFromString)
+    ball.setFrameOrigin(
+      Corner.clamp(
+        saved ?? Corner.topRight.origin(for: ball.frame.size, in: rect),
+        size: ball.frame.size, in: rect))
     ball.orderFrontRegardless()
   }
 
@@ -109,27 +109,26 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
 
   // MARK: Ball position
 
-  private var corner: Corner {
-    Corner.nearest(
-      to: CGPoint(x: ball.frame.midX, y: ball.frame.midY), in: Self.screenRect(ball.screen))
-  }
-
   private func placeList() {
+    let rect = Self.screenRect(ball.screen)
+    let corner = Corner.nearest(to: CGPoint(x: ball.frame.midX, y: ball.frame.midY), in: rect)
     model.corner = corner
-    list.setFrameOrigin(corner.panelOrigin(for: list.frame.size, beside: ball.frame))
+    list.setFrameOrigin(
+      Corner.clamp(
+        corner.panelOrigin(for: list.frame.size, beside: ball.frame),
+        size: list.frame.size, in: rect))
   }
 
-  private func snap() {
-    let corner = corner
-    defaults.set(corner.rawValue, forKey: Self.cornerKey)
-    let origin = corner.origin(for: ball.frame.size, in: Self.screenRect(ball.screen))
-    // animator().setFrame on this panel traps inside AppKit on macOS 26; the built-in move doesn't.
-    ball.setFrame(
-      CGRect(origin: origin, size: ball.frame.size), display: true, animate: !Self.reduceMotion)
+  private func drop() {
+    let rect = Self.screenRect(ball.screen)
+    ball.setFrameOrigin(Corner.clamp(ball.frame.origin, size: ball.frame.size, in: rect))
+    defaults.set(NSStringFromPoint(ball.frame.origin), forKey: Self.originKey)
     placeList()
   }
 
-  /// Show or hide both panels. The list comes back only if hover had it open.
+  // MARK: List
+
+  /// Show or hide both panels. The list comes back only if it was open.
   func toggleVisible() {
     hidden.toggle()
     if hidden {
@@ -137,83 +136,27 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
       list.orderOut(nil)
     } else {
       ball.orderFrontRegardless()
-      if machine.state != .collapsed { list.orderFront(nil) }
+      if open { list.orderFront(nil) }
+    }
+  }
+
+  func toggle() {
+    open.toggle()
+    if open {
+      placeList()
+      list.orderFrontRegardless()
+      withAnimation(Self.reduceMotion ? nil : .easeOut(duration: 0.18)) { model.shown = true }
+    } else {
+      model.shown = false
+      list.orderOut(nil)
     }
   }
 
   /// Opens the list now and tells the add field to take focus.
   func summon() {
     if hidden { toggleVisible() }
-    send(.summon)
+    if !open { toggle() }
     list.makeKey()
     NotificationCenter.default.post(name: Notification.Name("GlanceFocusAddField"), object: nil)
-  }
-
-  // MARK: Hover
-
-  @discardableResult private func track(_ view: NSView) -> NSTrackingArea {
-    let area = NSTrackingArea(
-      rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
-    view.addTrackingArea(area)
-    return area
-  }
-
-  @objc(mouseEntered:) func mouseEntered(with event: NSEvent) { hover(event.trackingArea, true) }
-  @objc(mouseExited:) func mouseExited(with event: NSEvent) { hover(event.trackingArea, false) }
-
-  private func hover(_ area: NSTrackingArea?, _ isInside: Bool) {
-    let wasInside = overBall || overList
-    if area === ballArea { overBall = isInside } else { overList = isInside }
-    let inside = overBall || overList
-    if inside != wasInside { send(inside ? .enter : .leave) }
-  }
-
-  func windowDidBecomeKey(_ notification: Notification) { send(.focus(true)) }
-  func windowDidResignKey(_ notification: Notification) { send(.focus(false)) }
-
-  private func send(_ event: HoverMachine.Event) {
-    let old = machine
-    machine.send(event)
-    if machine.state != old.state { show(machine.state, from: old.state) }
-    if machine.timer != old.timer { schedule(machine.timer) }
-  }
-
-  /// One sleeping task at a time, so idle costs no CPU.
-  private func schedule(_ timer: HoverMachine.Timer?) {
-    timerTask?.cancel()
-    guard let timer else { return }
-    let delay =
-      switch timer {
-      case .open: 0.12
-      case .fade: defaults.double(forKey: Self.fadeDelayKey)
-      case .collapse: 0.4
-      }
-    timerTask = Task { [weak self] in
-      try? await Task.sleep(for: .seconds(delay))
-      guard !Task.isCancelled else { return }
-      self?.send(.timerFired)
-    }
-  }
-
-  private func show(_ state: HoverMachine.State, from old: HoverMachine.State) {
-    switch state {
-    case .expanded where old == .collapsed:
-      placeList()
-      list.alphaValue = 1
-      list.orderFrontRegardless()
-      withAnimation(Self.reduceMotion ? nil : .easeOut(duration: 0.18)) { model.shown = true }
-    case .expanded: fade(to: 1, over: 0.18)
-    case .faded: fade(to: defaults.double(forKey: Self.fadeOpacityKey), over: 0.4)
-    case .collapsed:
-      model.shown = false
-      list.orderOut(nil)
-    }
-  }
-
-  private func fade(to alpha: Double, over duration: Double) {
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = duration
-      list.animator().alphaValue = alpha
-    }
   }
 }

@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct SettingsView: View {
-  @AppStorage("fadeOpacity") private var fadeOpacity = 0.3
-  @AppStorage("fadeDelay") private var fadeDelay = 0.6
   @AppStorage("showButterfly") private var showButterfly = true
   // Nothing reads this yet; the reminders thread (T4) will.
   @AppStorage("notificationsEnabled") private var notificationsEnabled = true
@@ -10,16 +8,6 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
-      LabeledContent("Fade opacity") {
-        Slider(value: $fadeOpacity, in: 0.1...0.8)
-      }
-      LabeledContent("Fade delay") {
-        HStack {
-          Slider(value: $fadeDelay, in: 0.2...3.0)
-          Text("\(fadeDelay, format: .number.precision(.fractionLength(1))) s")
-            .monospacedDigit()
-        }
-      }
       Toggle("Show butterfly", isOn: $showButterfly)
       Toggle("Notifications", isOn: $notificationsEnabled)
       LaunchAtLoginToggle()

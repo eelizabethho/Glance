@@ -22,6 +22,13 @@ struct CornerTests {
     #expect(Corner.bottomLeft.origin(for: size, in: screen) == CGPoint(x: 0, y: 0))
   }
 
+  @Test func clampsAWindowIntoTheScreen() {
+    let size = CGSize(width: 50, height: 50)
+    #expect(Corner.clamp(CGPoint(x: 990, y: -20), size: size, in: screen) == CGPoint(x: 950, y: 0))
+    #expect(
+      Corner.clamp(CGPoint(x: 400, y: 300), size: size, in: screen) == CGPoint(x: 400, y: 300))
+  }
+
   @Test func placesThePanelOnTheScreenSideOfTheBall() {
     let size = CGSize(width: 300, height: 400)
     let ball = CGRect(x: 950, y: 750, width: 50, height: 50)
