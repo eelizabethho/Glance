@@ -31,10 +31,17 @@ public enum MarkdownParser {
   }
 
   static func taskLine(_ line: String) -> GlanceTask? {
-    guard let match = line.wholeMatch(of: /- \[([ \/xX-])\] (.*)/),
+    var task: GlanceTask
+    if let match = line.wholeMatch(of: /- \[([ \/xX-])\] (.*)/),
       let status = TaskStatus(rawValue: match.1.lowercased())
-    else { return nil }
-    var task = GlanceTask(text: String(match.2), status: status)
+    {
+      task = GlanceTask(text: String(match.2), status: status)
+    } else if let match = line.wholeMatch(of: /- ([^\[\s].*)/) {
+      // shortcut: a bullet whose text starts with "[" or a space stays a raw line.
+      task = GlanceTask(text: String(match.1), isNote: true)
+    } else {
+      return nil
+    }
 
     // Tokens are read only from the end, in canonical order, so an odd token stays in the text.
     if let found = task.text.firstMatch(of: /(?<rest>.*) 🤖 (?<source>\S+) (?<day>\S+)$/),
@@ -98,7 +105,7 @@ public enum MarkdownSerializer {
   }
 
   static func taskLines(_ task: GlanceTask) -> [String] {
-    var line = "- [\(task.status.rawValue)] \(task.text)"
+    var line = task.isNote ? "- \(task.text)" : "- [\(task.status.rawValue)] \(task.text)"
     if let due = task.due { line += " 📅 \(due.day)" + (due.time.map { " \($0)" } ?? "") }
     if let done = task.doneAt { line += " ✅ \(done)" }
     if let suggestion = task.suggestion { line += " 🤖 \(suggestion.source) \(suggestion.day)" }

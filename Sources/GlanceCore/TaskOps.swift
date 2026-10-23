@@ -245,7 +245,9 @@ extension GlanceDocument {
 public enum Counts {
   /// Open to-do tasks, the number on the ball. Pending tasks and suggestions are not counted.
   public static func todo(_ doc: GlanceDocument) -> Int {
-    doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count { $0.status == .todo }
+    doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
+      $0.status == .todo && !$0.isNote
+    }
   }
 
   /// Open tasks due today or earlier, which tints the ball.
@@ -254,7 +256,7 @@ public enum Counts {
   ) -> Int {
     let today = CalendarDay(now, calendar: calendar)
     return doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      ($0.status == .todo || $0.status == .pending) && $0.due.map { $0.day <= today } == true
+      !$0.isNote && ($0.status == .todo || $0.status == .pending) && $0.due.map { $0.day <= today } == true
     }
   }
 }

@@ -93,11 +93,14 @@ public struct GlanceTask: Identifiable, Hashable, Sendable {
   public var doneAt: CalendarDay?
   public var notes: String?
   public var suggestion: Suggestion?
+  /// A bullet line (`- text`) rather than a checklist item; never counted.
+  public var isNote: Bool
 
   init(
     text: String, status: TaskStatus = .todo, due: DueDate? = nil, doneAt: CalendarDay? = nil,
-    notes: String? = nil, suggestion: Suggestion? = nil
+    notes: String? = nil, suggestion: Suggestion? = nil, isNote: Bool = false
   ) {
+    self.isNote = isNote
     self.id = TaskID(rawValue: "")
     self.category = ""
     self.text = text

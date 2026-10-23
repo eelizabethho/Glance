@@ -163,6 +163,7 @@ glance: 1
 
 - `## name` starts a category. `suggested` is reserved for AI suggestions. It isn't counted on the ball and is shown as its own section with ✓/✕.
 - `📅 YYYY-MM-DD[ HH:mm]` is the due date and optional time. `✅ YYYY-MM-DD` is the completion date. `🤖 <source> <date>` marks a suggestion.
+- `- text` (no checkbox) is a bullet note, `isNote = true`. Notes are never counted. See ADR 0007.
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
@@ -175,7 +176,7 @@ struct DueDate { day: CalendarDay; time: TimeOfDay? }
 struct Suggestion { source: String; day: CalendarDay }      // the 🤖 token
 struct TaskID { rawValue: String }                          // "category/text#occurrence"
 struct GlanceTask: Identifiable { id, category (read-only); text, status, due: DueDate?, doneAt: CalendarDay?,
-                                  notes: String?, suggestion: Suggestion? }
+                                  notes: String?, suggestion: Suggestion?, isNote: Bool }
 struct Category { name (read-only); tasks: [GlanceTask]; isSuggested }
 struct GlanceDocument { categories (read-only); tasks; task(_ id:) }   // + preserved unknown lines
 
