@@ -167,3 +167,15 @@ struct NotesTextViewTests {
     #expect(view.string == "☐ b")
   }
 }
+
+struct PageEditorMergeTests {
+  @Test func linesAnotherWriterAddedSurviveASave() {
+    let added = PageEditor.added(
+      current: ["- [ ] a", "- [ ] from claude"], base: ["- [ ] a"], edited: ["- [ ] a", "- [ ] b"])
+    #expect(added == ["- [ ] from claude"])
+  }
+
+  @Test func nothingIsAddedBackWhenOnlyTheEditorChanged() {
+    #expect(PageEditor.added(current: ["- [ ] a"], base: ["- [ ] a"], edited: []).isEmpty)
+  }
+}

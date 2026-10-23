@@ -32,6 +32,18 @@ final class NotesTextView: NSTextView {
     needsDisplay = true
   }
 
+  /// Adds lines written elsewhere to the end without moving the cursor or the user's undo steps.
+  func append(lines: [String]) {
+    guard let storage = textStorage, !lines.isEmpty else { return }
+    let selection = selectedRanges
+    storage.beginEditing()
+    storage.append(NSAttributedString(string: storage.length > 0 ? "\n" : ""))
+    storage.append(PageText.attributed(from: lines))
+    PageText.restyle(storage)
+    storage.endEditing()
+    selectedRanges = selection
+  }
+
   // MARK: - Editing
 
   override func didChangeText() {

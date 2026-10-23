@@ -32,6 +32,7 @@ struct PageEditor: NSViewRepresentable {
   func makeNSView(context: Context) -> NotesTextView {
     let view = NotesTextView.make()
     view.load(lines: lines)
+    context.coordinator.base = PageText.shown(lines)
     view.onEdit = { [coordinator = context.coordinator] in coordinator.edited() }
     view.onResign = { [coordinator = context.coordinator] in coordinator.flush() }
     context.coordinator.view = view
@@ -60,11 +61,23 @@ struct PageEditor: NSViewRepresentable {
     return CGSize(width: width, height: max(ceil(layout.usedRect(for: container).height), 160))
   }
 
+  /// Lines another writer added since `base` that the editor doesn't already have, in file order.
+  static func added(current: [String], base: [String], edited: [String]) -> [String] {
+    var known = base + edited
+    return current.filter { line in
+      guard let index = known.firstIndex(of: line) else { return true }
+      known.remove(at: index)
+      return false
+    }
+  }
+
   final class Coordinator {
     var parent: PageEditor
     weak var view: NotesTextView?
     private var page: String?
     private var unsaved = false
+    /// The page as last loaded or saved, to spot lines another writer (MCP) added meanwhile.
+    var base: [String] = []
     /// The one pending save; nothing runs while idle.
     private var pending: Task<Void, Never>?
 
@@ -92,7 +105,7 @@ struct PageEditor: NSViewRepresentable {
       pending = nil
       guard unsaved, let view else { return }
       unsaved = false
-      save(view.lines, to: page)
+      save(view.lines, to: page, base: base)
     }
 
     func update(_ new: PageEditor) {
@@ -101,27 +114,36 @@ struct PageEditor: NSViewRepresentable {
       if new.page != page {
         if unsaved {
           // Saving changes observed state, which a view update must not do.
-          let (lines, old) = (view.lines, page)
+          let (lines, old, oldBase) = (view.lines, page, base)
           unsaved = false
           pending?.cancel()
-          Task { @MainActor in self.save(lines, to: old) }
+          Task { @MainActor in self.save(lines, to: old, base: oldBase) }
         }
         page = new.page
         view.load(lines: new.lines)
+        base = PageText.shown(new.lines)
       } else if !unsaved, view.window?.firstResponder !== view,
         view.lines != PageText.shown(new.lines)
       {
         view.load(lines: new.lines)
+        base = PageText.shown(new.lines)
       }
     }
 
-    private func save(_ lines: [String], to page: String?) {
+    /// Merges against the file as it is at write time, so a line MCP just added is kept, not overwritten.
+    private func save(_ lines: [String], to page: String?, base: [String]) {
       let name = page ?? GlanceDocument.defaultCategory
-      guard PageText.shown(parent.state.document.bodyLines(of: name)) != lines else { return }
+      var added: [String] = []
       parent.state.perform { doc in
+        let current = PageText.shown(doc.bodyLines(of: name))
+        added = PageEditor.added(current: current, base: base, edited: lines)
+        guard current != lines + added else { return }
         if !doc.categories.contains(where: { $0.name == name }) { try doc.addCategory(name) }
-        try doc.replaceBody(of: name, with: lines)
+        try doc.replaceBody(of: name, with: lines + added)
       }
+      guard page == self.page else { return }
+      self.base = lines + added
+      view?.append(lines: added)
     }
   }
 }
