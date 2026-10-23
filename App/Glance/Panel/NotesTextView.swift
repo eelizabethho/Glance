@@ -53,7 +53,7 @@ final class NotesTextView: NSTextView {
     onEdit?()
   }
 
-  private func restyle() {
+  func restyle() {
     guard let storage = textStorage else { return }
     storage.beginEditing()
     PageText.restyle(storage)
@@ -95,12 +95,15 @@ final class NotesTextView: NSTextView {
 
   override func insertNewline(_ sender: Any?) {
     let selection = selectedRange()
+    let level = indentLevel(at: selection.location)
+    var split = true
     let (start, end) = paragraph(at: selection.location)
     let line = (string as NSString).substring(with: NSRange(location: start, length: end - start))
     if let marker = PageText.marker(in: line), selection.location >= start + marker.length {
       if line.utf16.count == marker.length {  // a marker-only line ends the list
         replace(NSRange(location: start, length: marker.length), with: "")
         setSelectedRange(NSRange(location: start, length: 0))
+        split = false
       } else {
         insertText(marker.kind == .bullet ? "\n• " : "\n☐ ", replacementRange: selection)
       }
@@ -108,13 +111,28 @@ final class NotesTextView: NSTextView {
       super.insertNewline(sender)
     }
     typingAttributes = PageText.bodyAttributes
+    let cursor = paragraph(at: selectedRange().location).start
+    if split, cursor > 0 { setIndent(level, at: cursor - 1) }
+    setIndent(level, at: cursor)
   }
+
+  // MARK: - Indent
+
+  override func insertTab(_ sender: Any?) { shiftIndent(by: 1) }
+  override func insertBacktab(_ sender: Any?) { shiftIndent(by: -1) }
 
   override func deleteBackward(_ sender: Any?) {
     let selection = selectedRange()
     if selection.length == 0 {
       let (start, end) = paragraph(at: selection.location)
       let line = (string as NSString).substring(with: NSRange(location: start, length: end - start))
+      if indentLevel(at: start) > 0,
+        selection.location == start
+          || selection.location == start + (PageText.marker(in: line)?.length ?? -1)
+      {
+        shiftIndent(by: -1)  // outdent first, then the next backspace follows the usual rules
+        return
+      }
       if let marker = PageText.marker(in: line), selection.location == start + marker.length {
         replace(NSRange(location: start, length: marker.length), with: "")
         setSelectedRange(NSRange(location: start, length: 0))
@@ -146,6 +164,7 @@ final class NotesTextView: NSTextView {
   /// Sets the kind of the line holding the cursor.
   func convertParagraph(to kind: NoteKind) {
     let location = selectedRange().location
+    let level = indentLevel(at: location)
     let (start, end) = paragraph(at: location)
     let line = (string as NSString).substring(with: NSRange(location: start, length: end - start))
     let old = PageText.marker(in: line)
@@ -171,6 +190,7 @@ final class NotesTextView: NSTextView {
     setSelectedRange(
       NSRange(location: max(floor, location + marker.utf16.count - oldLength), length: 0))
     typingAttributes = kind == .heading ? PageText.headingAttributes : PageText.bodyAttributes
+    if kind != .heading { setIndent(level, at: start) }
   }
 
   /// Removes every crossed-out line.
@@ -179,18 +199,6 @@ final class NotesTextView: NSTextView {
     let all = NSRange(location: 0, length: (string as NSString).length)
     guard replace(all, with: PageText.attributed(from: kept)) else { return }
     setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
-  }
-
-  private func deleteLine() {
-    let location = selectedRange().location
-    let (start, end) = paragraph(at: location)
-    let length = (string as NSString).length
-    // The last line takes the newline above it, so no empty line is left behind.
-    let range =
-      end < length
-      ? NSRange(location: start, length: end - start + 1)
-      : NSRange(location: max(start - 1, 0), length: end - max(start - 1, 0))
-    replace(range, with: "")
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -203,32 +211,6 @@ final class NotesTextView: NSTextView {
     }
     return super.performKeyEquivalent(with: event)
   }
-
-  override func menu(for event: NSEvent) -> NSMenu? {
-    let menu = super.menu(for: event) ?? NSMenu()
-    let point = convert(event.locationInWindow, from: nil)
-    setSelectedRange(NSRange(location: characterIndexForInsertion(at: point), length: 0))
-    menu.insertItem(.separator(), at: 0)
-    let titles: [(String, NoteKind)] = [
-      ("Checklist", .checklist), ("Bullet", .bullet), ("Heading", .heading), ("Plain Text", .plain),
-    ]
-    for (title, kind) in titles.reversed() {
-      let item = NSMenuItem(title: title, action: #selector(convertFromMenu(_:)), keyEquivalent: "")
-      item.tag = kind.rawValue
-      menu.insertItem(item, at: 0)
-    }
-    menu.insertItem(
-      NSMenuItem(
-        title: "Delete Line", action: #selector(deleteLineFromMenu(_:)), keyEquivalent: ""),
-      at: 4)
-    return menu
-  }
-
-  @objc private func convertFromMenu(_ item: NSMenuItem) {
-    convertParagraph(to: NoteKind(rawValue: item.tag) ?? .plain)
-  }
-
-  @objc private func deleteLineFromMenu(_ item: NSMenuItem) { deleteLine() }
 
   // MARK: - Clicks and drawing
 
@@ -276,7 +258,7 @@ final class NotesTextView: NSTextView {
   // MARK: - Helpers
 
   @discardableResult
-  private func replace(_ range: NSRange, with text: String) -> Bool {
+  func replace(_ range: NSRange, with text: String) -> Bool {
     replace(range, with: NSAttributedString(string: text))
   }
 
@@ -290,7 +272,7 @@ final class NotesTextView: NSTextView {
   }
 
   /// Where the paragraph holding `location` starts and where its text ends, before the newline.
-  fileprivate func paragraph(at location: Int) -> (start: Int, end: Int) {
+  func paragraph(at location: Int) -> (start: Int, end: Int) {
     var start = 0
     var end = 0
     var contentsEnd = 0

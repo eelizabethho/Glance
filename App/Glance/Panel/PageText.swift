@@ -3,6 +3,8 @@ import AppKit
 extension NSAttributedString.Key {
   /// Marks the text of a heading paragraph, which has no marker glyph.
   static let glanceHeading = NSAttributedString.Key("glanceHeading")
+  /// The indent level (1...4) on every character of a paragraph, newline included.
+  static let glanceIndent = NSAttributedString.Key("glanceIndent")
 }
 
 enum NoteKind: Int {
@@ -14,6 +16,8 @@ enum NoteKind: Int {
 /// paragraph, and anything else as plain text. Every conversion is lossless.
 enum PageText {
   static let size: CGFloat = 13
+  static let maxIndent = 4
+  static let indentWidth: CGFloat = 20
 
   /// Markdown prefix and glyph, most specific first. `[X]` and `[-]` read as crossed out and save as `[x]`.
   private static let prefixes: [(markdown: String, glyph: String)] = [
@@ -56,6 +60,21 @@ enum PageText {
   /// `lines` as the editor shows and saves them, so a reload or save compares like with like.
   static func shown(_ lines: [String]) -> [String] { Self.lines(from: attributed(from: lines)) }
 
+  /// Leading pairs of spaces become the indent attribute. A line that would change meaning
+  /// without them (blank, or a `### ` that stayed plain text) keeps its spaces as text.
+  private static func splitIndent(_ line: String) -> (level: Int, rest: String) {
+    let level = min(line.prefix { $0 == " " }.count / 2, maxIndent)
+    let rest = String(line.dropFirst(level * 2))
+    return level == 0 || rest.isEmpty || rest.hasPrefix("### ") ? (0, line) : (level, rest)
+  }
+
+  /// The indent level of the paragraph whose characters, newline included, are `whole`.
+  static func indent(in text: NSAttributedString, _ whole: NSRange) -> Int {
+    guard whole.length > 0 else { return 0 }
+    return text.attribute(.glanceIndent, at: NSMaxRange(whole) - 1, effectiveRange: nil) as? Int
+      ?? 0
+  }
+
   private static func markdown(_ paragraph: String, heading: Bool) -> String {
     if heading { return "### " + paragraph }
     for (markdown, glyph) in [("- [ ] ", "☐ "), ("- [x] ", "☑ "), ("- ", "• ")]
@@ -72,19 +91,27 @@ enum PageText {
       let length = paragraph.utf16.count
       defer { location += length + 1 }
       let heading = length > 0 && heading(in: text, NSRange(location: location, length: length))
-      return markdown(paragraph, heading: heading)
+      let whole = NSRange(location: location, length: min(length + 1, text.length - location))
+      let pad =
+        length > 0 && !heading ? String(repeating: "  ", count: indent(in: text, whole)) : ""
+      return pad + markdown(paragraph, heading: heading)
     }
   }
 
   static func attributed(from lines: [String]) -> NSAttributedString {
-    let shown = lines.map(display)
+    let split = lines.map(splitIndent)
+    let shown = split.map { display($0.rest) }
     let text = NSMutableAttributedString(string: shown.map(\.text).joined(separator: "\n"))
     var location = 0
-    for item in shown {
+    for (item, indent) in zip(shown, split.map(\.level)) {
       let length = item.text.utf16.count
       if item.heading {
         text.addAttribute(
           .glanceHeading, value: true, range: NSRange(location: location, length: length))
+      }
+      if indent > 0 {
+        let whole = NSRange(location: location, length: min(length + 1, text.length - location))
+        text.addAttribute(.glanceIndent, value: indent, range: whole)
       }
       location += length + 1
     }
@@ -126,12 +153,15 @@ enum PageText {
       location += length + 1
       guard whole.length > 0 else { continue }
       let isHeading = heading(in: text, content)
+      let level = isHeading ? 0 : indent(in: text, whole)
       let marker = marker(in: paragraph)
       let done = paragraph.hasPrefix("☑ ")
       let style = NSMutableParagraphStyle()
       style.lineSpacing = 2
       style.paragraphSpacing = 7
-      if marker != nil { style.headIndent = markerIndent }
+      let offset = CGFloat(level) * indentWidth
+      style.firstLineHeadIndent = offset
+      style.headIndent = offset + (marker != nil ? markerIndent : 0)
       if isHeading { style.paragraphSpacingBefore = 10 }
       var attributes = isHeading ? headingAttributes : bodyAttributes
       attributes[.paragraphStyle] = style
@@ -139,6 +169,7 @@ enum PageText {
         attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
         attributes[.foregroundColor] = NSColor.secondaryLabelColor
       }
+      if level > 0 { attributes[.glanceIndent] = level }
       text.setAttributes(attributes, range: whole)
       if !isHeading { text.removeAttribute(.glanceHeading, range: whole) }
       if marker != nil {
