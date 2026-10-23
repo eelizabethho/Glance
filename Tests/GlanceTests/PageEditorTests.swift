@@ -179,3 +179,9 @@ struct PageEditorMergeTests {
     #expect(PageEditor.added(current: ["- [ ] a"], base: ["- [ ] a"], edited: []).isEmpty)
   }
 }
+
+struct IndentedDoneTests {
+  @Test func indentedCrossedOutLinesCountAsDone() {
+    #expect(PageText.doneCount(lines: ["- [x] a", "  - [x] b", "    - [ ] c", "  - d"]) == 2)
+  }
+}

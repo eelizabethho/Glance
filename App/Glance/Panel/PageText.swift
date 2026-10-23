@@ -119,8 +119,11 @@ enum PageText {
     return text
   }
 
-  static func doneCount(lines: [String]) -> Int {
-    lines.count { display($0).text.hasPrefix("☑ ") }
+  static func doneCount(lines: [String]) -> Int { lines.count(where: isDone) }
+
+  /// A crossed-out checklist line at any indent.
+  static func isDone(_ line: String) -> Bool {
+    display(String(line.drop { $0 == " " })).text.hasPrefix("☑ ")
   }
 
   static func heading(in text: NSAttributedString, _ range: NSRange) -> Bool {

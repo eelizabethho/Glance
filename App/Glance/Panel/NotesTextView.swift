@@ -195,7 +195,7 @@ final class NotesTextView: NSTextView {
 
   /// Removes every crossed-out line.
   func removeDone() {
-    let kept = lines.filter { !PageText.display($0).text.hasPrefix("☑ ") }
+    let kept = lines.filter { !PageText.isDone($0) }
     let all = NSRange(location: 0, length: (string as NSString).length)
     guard replace(all, with: PageText.attributed(from: kept)) else { return }
     setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
