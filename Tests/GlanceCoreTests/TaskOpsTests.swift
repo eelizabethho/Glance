@@ -32,7 +32,7 @@ private func id(_ doc: GlanceDocument, _ text: String) throws -> TaskID {
 
   var empty = MarkdownParser.parse("")
   let inbox = try empty.add("first")
-  #expect(empty.task(inbox)?.category == "inbox")
+  #expect(empty.task(inbox)?.category == "notes")
 }
 
 @Test func `add rejects blank text, multi-line text, and the suggested category`() throws {

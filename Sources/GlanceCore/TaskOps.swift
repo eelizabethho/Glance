@@ -20,7 +20,7 @@ public enum SuggestResult: Hashable, Sendable {
 
 /// Every edit to a document. Each one leaves `id` and `category` on every task up to date.
 extension GlanceDocument {
-  public static let defaultCategory = "inbox"
+  public static let defaultCategory = "notes"
 
   @discardableResult
   public mutating func add(_ text: String, category: String? = nil, due: DueDate? = nil) throws
@@ -246,7 +246,7 @@ public enum Counts {
   /// Open to-do tasks, the number on the ball. Pending tasks and suggestions are not counted.
   public static func todo(_ doc: GlanceDocument) -> Int {
     doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      $0.status == .todo && !$0.isNote
+      $0.status == .todo && !$0.isHeading
     }
   }
 
@@ -256,7 +256,7 @@ public enum Counts {
   ) -> Int {
     let today = CalendarDay(now, calendar: calendar)
     return doc.categories.filter { !$0.isSuggested }.flatMap(\.tasks).count {
-      !$0.isNote && ($0.status == .todo || $0.status == .pending)
+      !$0.isHeading && ($0.status == .todo || $0.status == .pending)
         && $0.due.map { $0.day <= today } == true
     }
   }

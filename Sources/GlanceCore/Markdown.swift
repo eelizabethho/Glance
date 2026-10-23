@@ -36,9 +36,8 @@ public enum MarkdownParser {
       let status = TaskStatus(rawValue: match.1.lowercased())
     {
       task = GlanceTask(text: String(match.2), status: status)
-    } else if let match = line.wholeMatch(of: /- ([^\[\s].*)/) {
-      // shortcut: a bullet whose text starts with "[" or a space stays a raw line.
-      task = GlanceTask(text: String(match.1), isNote: true)
+    } else if let match = line.wholeMatch(of: /### (\S.*)/) {
+      return GlanceTask(text: String(match.1), isHeading: true)
     } else {
       return nil
     }
@@ -105,7 +104,8 @@ public enum MarkdownSerializer {
   }
 
   static func taskLines(_ task: GlanceTask) -> [String] {
-    var line = task.isNote ? "- \(task.text)" : "- [\(task.status.rawValue)] \(task.text)"
+    if task.isHeading { return ["### \(task.text)"] }
+    var line = "- [\(task.status.rawValue)] \(task.text)"
     if let due = task.due { line += " 📅 \(due.day)" + (due.time.map { " \($0)" } ?? "") }
     if let done = task.doneAt { line += " ✅ \(done)" }
     if let suggestion = task.suggestion { line += " 🤖 \(suggestion.source) \(suggestion.day)" }
