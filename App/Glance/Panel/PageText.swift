@@ -96,7 +96,7 @@ enum PageText {
     lines.count { display($0).text.hasPrefix("☑ ") }
   }
 
-  private static func heading(in text: NSAttributedString, _ range: NSRange) -> Bool {
+  static func heading(in text: NSAttributedString, _ range: NSRange) -> Bool {
     var found = false
     text.enumerateAttribute(.glanceHeading, in: range) { value, _, stop in
       if value != nil {

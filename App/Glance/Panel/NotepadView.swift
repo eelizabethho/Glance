@@ -1,4 +1,5 @@
 import GlanceCore
+import AppKit
 import SwiftUI
 
 private let focusNewLine = Notification.Name("GlanceFocusAddField")
@@ -11,13 +12,17 @@ struct NotepadView: View {
   let lines: [String]
   @State private var handle = EditorHandle()
   @State private var doneCount = 0
+  @State private var kind = NoteKind.plain
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       PageEditor(
         state: state, page: category, lines: lines, handle: handle,
         doneCountChanged: { doneCount = $0 })
-      if doneCount > 0 { clearDone }
+      formatBar
+    }
+    .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { _ in
+      kind = handle.kind
     }
     .onChange(of: lines, initial: true) { doneCount = PageText.doneCount(lines: lines) }
     .background {
@@ -30,13 +35,31 @@ struct NotepadView: View {
     }
   }
 
-  private var clearDone: some View {
-    HStack {
+  private var formatBar: some View {
+    HStack(spacing: 4) {
+      formatButton("☐", .checklist, label: "Checklist")
+      formatButton("•", .bullet, label: "Bullet")
+      formatButton("H", .heading, label: "Heading")
       Spacer()
-      Button("Clear \(doneCount) done") { handle.clearDone() }
-        .buttonStyle(.plain)
-        .font(.mono(11))
-        .foregroundStyle(.secondary)
+      if doneCount > 0 {
+        Button("Clear \(doneCount) done") { handle.clearDone() }
+          .buttonStyle(.plain)
+          .font(.mono(11))
+          .foregroundStyle(.secondary)
+      }
     }
+  }
+
+  private func formatButton(_ glyph: String, _ target: NoteKind, label: String) -> some View {
+    let active = kind == target
+    return Button { handle.setKind(target) } label: {
+      Text(glyph).font(.mono(12, bold: true)).frame(width: 24, height: 22)
+        .foregroundStyle(active ? Color.primary : Color.secondary)
+        .background(active ? Color.primary.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 6))
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(label)
+    .accessibilityAddTraits(active ? .isSelected : [])
+    .help(label)
   }
 }

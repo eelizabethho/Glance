@@ -15,6 +15,15 @@ final class EditorHandle {
   }
 
   func clearDone() { view?.removeDone() }
+
+  var kind: NoteKind { view?.currentKind ?? .plain }
+
+  /// Sets the current line's kind; a line already of that kind goes back to plain.
+  func setKind(_ kind: NoteKind) {
+    guard let view else { return }
+    view.window?.makeFirstResponder(view)
+    view.convertParagraph(to: view.currentKind == kind ? .plain : kind)
+  }
 }
 
 /// One page as an editable text view. Edits save about half a second after typing stops, and on blur.
