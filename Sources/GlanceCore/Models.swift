@@ -103,12 +103,18 @@ public struct GlanceTask: Identifiable, Hashable, Sendable {
   public var suggestion: Suggestion?
   /// Only a checklist line has a status, due date, or suggestion, and only it is counted.
   public var kind: LineKind
+  /// Nesting level, 0...4, written as two leading spaces each. A heading never indents.
+  public var indent: Int
+
+  static let maxIndent = 4
 
   init(
     text: String, status: TaskStatus = .todo, due: DueDate? = nil, doneAt: CalendarDay? = nil,
-    notes: String? = nil, suggestion: Suggestion? = nil, kind: LineKind = .checklist
+    notes: String? = nil, suggestion: Suggestion? = nil, kind: LineKind = .checklist,
+    indent: Int = 0
   ) {
     self.kind = kind
+    self.indent = indent
     self.id = TaskID(rawValue: "")
     self.category = ""
     self.text = text

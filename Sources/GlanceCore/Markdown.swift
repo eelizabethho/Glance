@@ -31,15 +31,19 @@ public enum MarkdownParser {
   }
 
   static func taskLine(_ line: String) -> GlanceTask? {
+    // Odd or deeper spacing doesn't match below, so such a line stays raw and round-trips.
+    let spaces = line.prefix { $0 == " " }.count
+    let indent = min(spaces / 2, GlanceTask.maxIndent)
+    let line = String(line.dropFirst(indent * 2))
     var task: GlanceTask
     if let match = line.wholeMatch(of: /- \[([ \/xX-])\] (.*)/),
       let status = TaskStatus(rawValue: match.1.lowercased())
     {
-      task = GlanceTask(text: String(match.2), status: status)
-    } else if let match = line.wholeMatch(of: /### (\S.*)/) {
+      task = GlanceTask(text: String(match.2), status: status, indent: indent)
+    } else if indent == 0, let match = line.wholeMatch(of: /### (\S.*)/) {
       return GlanceTask(text: String(match.1), kind: .heading)
     } else if let match = line.wholeMatch(of: /- ([^\s\[].*)/) {
-      return GlanceTask(text: String(match.1), kind: .bullet)
+      return GlanceTask(text: String(match.1), kind: .bullet, indent: indent)
     } else {
       return nil
     }
@@ -112,6 +116,7 @@ public enum MarkdownSerializer {
       case .bullet: "- \(task.text)"
       case .checklist: "- [\(task.status.rawValue)] \(task.text)"
       }
+    if task.kind != .heading { line = String(repeating: "  ", count: task.indent) + line }
     if task.kind == .checklist {  // other kinds carry no tokens
       if let due = task.due { line += " 📅 \(due.day)" + (due.time.map { " \($0)" } ?? "") }
       if let done = task.doneAt { line += " ✅ \(done)" }

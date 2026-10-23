@@ -165,6 +165,7 @@ glance: 1
 - `📅 YYYY-MM-DD[ HH:mm]` is the due date and optional time. `✅ YYYY-MM-DD` is the completion date. `🤖 <source> <date>` marks a suggestion.
 - A line has a `kind`: `- [ ] text` is a checklist line (counted, can be crossed out), `- text` is a bullet, `### text` is a heading. Only checklist lines carry a marker status or tokens, and only they are counted. `- [` lines that are not a checkbox stay raw. See ADR 0009.
 - The panel edits a page as markdown lines through `replaceBody(of:with:)`: plain lines become raw entries, and a task that keeps its kind and text keeps its notes. See ADR 0010.
+- A bullet or checklist line may be indented two spaces per level, up to 4 (`indent`); a heading never is. Any other leading spacing stays a raw line. See ADR 0011.
 - Indented `> ` lines under a task are that task's notes.
 - Task IDs are computed in memory from category, text, and occurrence index. They aren't written to the file.
 
@@ -177,7 +178,7 @@ struct DueDate { day: CalendarDay; time: TimeOfDay? }
 struct Suggestion { source: String; day: CalendarDay }      // the 🤖 token
 struct TaskID { rawValue: String }                          // "category/text#occurrence"
 struct GlanceTask: Identifiable { id, category (read-only); text, status, due: DueDate?, doneAt: CalendarDay?,
-                                  notes: String?, suggestion: Suggestion?, kind: LineKind }
+                                  notes: String?, suggestion: Suggestion?, kind: LineKind, indent: Int }
 struct Category { name (read-only); tasks: [GlanceTask]; isSuggested }
 struct GlanceDocument { categories (read-only); tasks; task(_ id:) }   // + preserved unknown lines
 

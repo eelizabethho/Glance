@@ -97,6 +97,7 @@ private func assertUnknownLinesKept(_ text: String) {
         "id": "work/conference#0", "text": "conference", "status": "pending", "category": "work",
         "due": "2026-10-21", "doneAt": .null, "notes": "early-bird", "suggested": false,
         "kind": "checklist",
+        "indent": 0,
       ]))
   let dentist = try #require(tasks.arrayValue?.first { $0.objectValue?["text"] == "dentist" })
   #expect(dentist.objectValue?["due"] == "2026-10-22 14:30")

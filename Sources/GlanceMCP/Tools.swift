@@ -216,6 +216,7 @@ public enum GlanceTools {
       "notes": task.notes.map(Value.string) ?? .null,
       "suggested": .bool(task.suggestion != nil),
       "kind": .string(task.kind.rawValue),
+      "indent": .int(task.indent),
     ]
   }
 
