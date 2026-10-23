@@ -93,6 +93,44 @@ extension GlanceDocument {
     return before - categories[cat].entries.count
   }
 
+  /// A page's lines as markdown: tasks without their notes, other lines verbatim, no trailing blanks.
+  public func bodyLines(of category: String) -> [String] {
+    var lines = (categories.first { $0.name == category }?.entries ?? []).map { entry in
+      switch entry {
+      case .raw(let line): line
+      case .task(let task): MarkdownSerializer.taskLines(task)[0]
+      }
+    }
+    while lines.last == "" { lines.removeLast() }
+    return lines
+  }
+
+  /// Replaces the page with `lines` (markdown, plain text allowed). A task that keeps its kind and
+  /// text keeps its notes, suggestion and, while still crossed out, its done date.
+  public mutating func replaceBody(of category: String, with lines: [String]) throws {
+    let cat = try categoryIndex(category)
+    var old = categories[cat].tasks
+    var entries = lines.flatMap { $0.split(separator: "\n", omittingEmptySubsequences: false) }
+      .map { line -> Entry in
+        let line = String(line)
+        guard var task = MarkdownParser.taskLine(line) else {
+          // A leading space keeps a typed "## x" from starting a page.
+          // shortcut: a plain line shaped like a "  > " note still reads back as a note.
+          return .raw(line.hasPrefix("## ") ? " " + line : line)
+        }
+        if let match = old.firstIndex(where: { $0.kind == task.kind && $0.text == task.text }) {
+          let previous = old.remove(at: match)
+          task.notes = previous.notes
+          task.suggestion = task.suggestion ?? previous.suggestion
+          if task.status.isCrossedOut { task.doneAt = task.doneAt ?? previous.doneAt }
+        }
+        return .task(task)
+      }
+    while entries.last == .raw("") { entries.removeLast() }
+    categories[cat].entries = entries
+    separateCategories()
+  }
+
   public mutating func addCategory(_ name: String) throws {
     let name = try validName(name)
     guard name != Category.suggested else { throw TaskOpsError.reservedCategory }
