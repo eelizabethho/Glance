@@ -34,12 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate,
   @ObservationIgnored private var notificationsEnabled = true
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    // The test host launches the app too. It must not open the real list, show panels, or take
+    // ⌥Space, or a test run edits the owner's file behind their back.
+    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
     let state = AppState()
     let windows = WindowController(state: state)
     self.windows = windows
     hotKey = HotKey { windows.summon() }
-    // The test host launches the app too; it must not touch the real notification center.
-    guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
     UNUserNotificationCenter.current().delegate = self
     trackReminders(state)
     NotificationCenter.default.addObserver(
