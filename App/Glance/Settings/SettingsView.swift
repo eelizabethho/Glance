@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SettingsView: View {
-  // Nothing reads this yet; the reminders thread (T4) will.
   @AppStorage("notificationsEnabled") private var notificationsEnabled = true
   @AppStorage("showCompleted") private var showCompleted = true
   @State private var connecting = false

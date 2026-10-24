@@ -2,7 +2,7 @@ import Foundation
 import GlanceCore
 import MCP
 
-/// The MCP tools from `docs/PLAN.md` §8.1, callable without a transport.
+/// The MCP tools, callable without a transport.
 public enum GlanceTools {
   /// Runs one tool call. Failures come back as an `isError` result with a readable message.
   public static func handle(

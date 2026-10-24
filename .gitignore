@@ -8,8 +8,8 @@ DerivedData/
 .DS_Store
 App/Glance/Info.plist
 
-# Claude Code subagent worktrees
-.claude/worktrees/
+# Local tool state
+.claude/
 
 # Release output
 dist/
