@@ -61,7 +61,9 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
     ball = Self.panel(
       ballView, size: CGSize(width: 56 + 2 * Self.buffer, height: 56 + 2 * Self.buffer))
     let listView = NSHostingView(rootView: ListPanelContent(state: state, model: model))
-    let size = ListPanelContent.size
+    let size = PanelSize.load(
+      defaults, fallback: ListPanelContent.size, in: Self.screenRect(NSScreen.main),
+      buffer: Self.buffer)
     list = Self.panel(
       listView,
       size: CGSize(width: size.width + 2 * Self.buffer, height: size.height + 2 * Self.buffer))
@@ -71,6 +73,12 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
     list.keyable = true
     list.setAccessibilityLabel("Glance list")
     list.becomesKeyOnlyIfNeeded = true  // only a click in the text field takes focus
+    model.size = size
+    model.resize = { [weak self] in self?.resizeList(to: $0) }
+    model.resizeEnded = { [weak self] in
+      guard let self else { return }
+      self.defaults.set(NSStringFromSize(self.model.size), forKey: PanelSize.key)
+    }
     ballView.onMove = { [weak self] in self?.placeList() }
     ballView.onDrop = { [weak self] in self?.drop() }
     ballView.onClick = { [weak self] in self?.toggle() }
@@ -117,6 +125,15 @@ final class DragHostingView<Content: View>: NSHostingView<Content> {
       Corner.clamp(
         corner.panelOrigin(for: list.frame.size, beside: ball.frame),
         size: list.frame.size, in: rect))
+  }
+
+  /// Resizes the list, then hangs it off the ball again.
+  private func resizeList(to wanted: CGSize) {
+    let size = PanelSize.clamp(wanted, in: Self.screenRect(list.screen), buffer: Self.buffer)
+    model.size = size
+    list.setContentSize(
+      CGSize(width: size.width + 2 * Self.buffer, height: size.height + 2 * Self.buffer))
+    placeList()
   }
 
   private func drop() {

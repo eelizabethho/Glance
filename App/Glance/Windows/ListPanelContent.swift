@@ -4,10 +4,15 @@ import SwiftUI
 @Observable final class ListPanelModel {
   var shown = false
   var corner = Corner.topRight
+  var size = ListPanelContent.size
+  /// Asks the controller for a new content size; it clamps, resizes the window and re-places it.
+  var resize: (CGSize) -> Void = { _ in }
+  var resizeEnded: () -> Void = {}
 }
 
 /// Hosts T3's `PanelView` in a glass card that grows out of the ball's corner.
 struct ListPanelContent: View {
+  /// The default size; the dragged size lives in `ListPanelModel.size`.
   static let size = CGSize(width: 400, height: 560)
 
   let state: AppState
@@ -22,10 +27,11 @@ struct ListPanelContent: View {
           .scrollContentBackground(.hidden)
           .clipShape(shape)
           .modifier(GlassBackground(shape: shape, fill: opacity))
+          .overlay(alignment: .topLeading) { ResizeGrip(model: model) }
           .transition(.scale(scale: 0.15, anchor: anchor).combined(with: .opacity))
       }
     }
-    .frame(width: Self.size.width, height: Self.size.height)
+    .frame(width: model.size.width, height: model.size.height)
     .padding(WindowController.buffer)
     .hitArea()
   }
@@ -37,6 +43,39 @@ struct ListPanelContent: View {
     case .bottomLeft: .bottomLeading
     case .bottomRight: .bottomTrailing
     }
+  }
+}
+
+/// Drag the panel's top-left corner to resize it. Dragging left or up grows the panel.
+private struct ResizeGrip: View {
+  let model: ListPanelModel
+  @State private var start: (mouse: CGPoint, size: CGSize)?
+
+  var body: some View {
+    Image(systemName: "arrow.up.left.and.arrow.down.right")
+      .font(.system(size: 9, weight: .semibold))
+      .foregroundStyle(.tertiary)
+      .frame(width: 22, height: 22)
+      .contentShape(Rectangle())
+      .pointerStyle(.frameResize(position: .topLeading))
+      .accessibilityLabel("Resize panel")
+      .help("Drag to resize")
+      .gesture(
+        DragGesture(minimumDistance: 0)
+          .onChanged { _ in
+            // The window moves under the pointer, so measure against the screen, not the view.
+            let mouse = NSEvent.mouseLocation
+            let origin = start ?? (mouse, model.size)
+            start = origin
+            model.resize(
+              CGSize(
+                width: origin.size.width - (mouse.x - origin.mouse.x),
+                height: origin.size.height + (mouse.y - origin.mouse.y)))
+          }
+          .onEnded { _ in
+            start = nil
+            model.resizeEnded()
+          })
   }
 }
 
