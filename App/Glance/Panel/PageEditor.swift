@@ -97,6 +97,16 @@ struct PageEditor: NSViewRepresentable {
       + edited.indices.flatMap { [edited[$0]] + inserts[$0, default: []] }
   }
 
+  /// A line just checked in the editor has no done date yet; Completed sorts by it.
+  static func stampDone(in page: String, of doc: inout GlanceDocument, today: CalendarDay) throws {
+    // Re-read after each stamp, since a stamp may change the line's id.
+    while let task = doc.categories.first(where: { $0.name == page })?.tasks.first(where: {
+      $0.kind == .checklist && $0.status == .completed && $0.doneAt == nil
+    }) {
+      try doc.setStatus(task.id, .completed, today: today)
+    }
+  }
+
   final class Coordinator {
     var parent: PageEditor
     weak var view: NotesTextView?
@@ -189,6 +199,7 @@ struct PageEditor: NSViewRepresentable {
         guard current != merged else { return }
         if !doc.categories.contains(where: { $0.name == name }) { try doc.addCategory(name) }
         try doc.replaceBody(of: name, with: merged)
+        try PageEditor.stampDone(in: name, of: &doc, today: CalendarDay(.now, calendar: .current))
       }
       guard page == self.page else { return }
       // Crossed-out lines stay hidden; everything else another writer added shows up.

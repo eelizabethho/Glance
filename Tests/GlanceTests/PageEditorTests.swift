@@ -1,4 +1,5 @@
 import AppKit
+import GlanceCore
 import Testing
 
 @testable import Glance
@@ -248,5 +249,14 @@ struct IndentedDoneTests {
     #expect(
       view.selectedRange()
         == NSRange(location: (view.string as NSString).range(of: "typing").location + 3, length: 0))
+  }
+}
+
+struct StampDoneTests {
+  @Test func aLineCheckedInTheEditorGetsTodaysDoneDate() throws {
+    var doc = MarkdownParser.parse("## p\n- [x] a\n- [x] b ✅ 2026-10-01\n- [ ] c\n")
+    let today = CalendarDay(Date(timeIntervalSince1970: 1_792_000_000))
+    try PageEditor.stampDone(in: "p", of: &doc, today: today)
+    #expect(doc.bodyLines(of: "p") == ["- [x] a ✅ \(today)", "- [x] b ✅ 2026-10-01", "- [ ] c"])
   }
 }
