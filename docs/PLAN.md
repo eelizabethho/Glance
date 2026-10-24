@@ -26,25 +26,26 @@ These are in `docs/reference/`. The owner will provide them; ask if they're miss
 | Element | Detail |
 |---|---|
 | **Ball** | Frosted circle under the menu bar, top-right, showing the open count (e.g. `8`). Always on top. |
-| **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (about 340×520 pt, ~18 pt corner radius) expands from the ball's corner. |
+| **Click → panel** | Clicking the ball opens the panel; clicking again closes it. The panel (default 400×560 pt, ~18 pt corner radius) expands from the ball's corner. Drag the grip at its top-left corner to resize, 320×400 to 640×900, clamped to the screen; the size is remembered. See ADR 0012. |
 | **Header** | Date in light grey, centred (`October 20, Tuesday`). Right side: `+` (with one page), a transparency slider toggle `◐`, the settings gear, and `✕`, which quits Glance. `◐` shows a slim slider row under the header. |
-| **Pages** | Your own pages, one `##` category each. With one page (or none) the row is hidden and a header `+` adds a page. With two or more, a row of capsules (selected one is a white pill) plus `+`. Hover a page for `✕`: an empty page deletes at once, a page with lines asks `Delete?` inline. Right-click renames in place. No alerts. See ADR 0008. |
+| **Pages** | Your own pages, one `##` category each. With no page, or one page and Completed hidden, the row is hidden and a header `+` adds a page. Otherwise a row of capsules (selected one is a white pill) plus `+`. Hover a page for `✕`: an empty page deletes at once, a page with lines asks `Delete?` inline. Right-click renames in place. No alerts. See ADR 0008. |
+| **Completed** | A built-in last tab (a view, not a `##` page) listing every crossed-out line, newest first, with its page name. A just-crossed line stays on its page for about 2 s, then leaves the editor and stays in the file. Uncheck restores, right-click deletes, "Clear all" empties it, hover ✕ hides the tab (Settings brings it back). See ADR 0012. |
 | **Headings** | A bold line with no marker (`work`, `life`). Type `# ` at the start of a line, or right-click → Heading. |
 | **Items** | One text view per page, as in Apple Notes (ADR 0010). `☐`/`☑` lines cross out when you click the box, `•` bullets, plain lines. Typing `[] `, `- ` or `# ` at line start converts it. A due date is the visible token `📅 2026-10-26`. |
 | **New line** | Return, a click below the last line, or ⌥Space (cursor at the end). An empty page shows `Start typing…`. |
-| **Format bar** | Bottom row: `☐ • H` set the kind of the current line (highlighted when active), and "Clear N done" on the right. |
+| **Format bar** | Bottom row: `☐ • H` set the kind of the current line (highlighted when active), with nothing on the right. |
 
 ### 1.2 Requirements
 
 **Must have (v1)**
 - **R1 Ball.** Frosted circle showing the number of **lines that aren't crossed out** on regular pages: checklist, pending, bullet and plain lines. Blank lines, headings and the suggested section aren't counted. Starts top-right under the menu bar. **Draggable** anywhere on screen. It stays where it's dropped and remembers its position across launches. Always on top, on every Space, and over fullscreen apps. Uses about 0% CPU when idle.
 - **R2 Click behaviour.** Clicking the ball opens the panel and clicking it again closes it. There is no hover behaviour and no fade.
-- **R3 Pages.** No built-in tabs. The user adds, renames, and deletes pages, and each is its own notepad. The selected page is remembered.
+- **R3 Pages.** Besides the built-in Completed tab (R8), no tabs. The user adds, renames, and deletes pages, and each is its own notepad. The selected page is remembered.
 - **R4 Headings.** Any line can be a heading (`### text`) that titles a group inside a page. Headings are never counted or due.
 - **R5 Lines.** Add, edit inline, cross out (`completed`) and restore, and delete.
 - **R6 Per-task notes.** Click a task to expand a short notes field (multi-line, links are clickable). There's no separate notes page in v1.
 - **R7 Due dates and reminders.** A task can have a due date and an optional time. Glance shows a **macOS notification** when a task is due (at the set time, or 9:00 for date-only tasks). The ball gets a **soft accent tint** when something is due today or overdue. Notifications can be turned off in Settings.
-- **R8 One ongoing list.** The date in the header is just today's date. Tasks stay until they're checked off, and completed tasks move to the Completed tab with their completion date.
+- **R8 One ongoing list.** The date in the header is just today's date. Tasks stay until they're checked off, and completed tasks leave their page after about 2 s, stay in the file where they were, and show in the Completed tab.
 - **R9 File is the source of truth.** The list is stored at `~/workspace/notes-reminder/data/todo.md`. Edits made outside the app (by an AI or a text editor) show up in the panel within 1 second.
 - **R10 Local MCP server.** Lets Claude Desktop (and ChatGPT desktop, if it supports local MCP; see §8.3) list, add, update, complete, and **suggest** tasks. Suggestions land in a **Suggested** section with ✓ accept / ✕ dismiss buttons.
 - **R11 Look and feel.** Apple **Liquid Glass** (macOS 26), **JetBrains Mono** font, **follows the system light/dark mode**.
