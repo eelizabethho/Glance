@@ -4,7 +4,7 @@ import SwiftUI
 
 private let focusNewLine = Notification.Name("GlanceFocusAddField")
 
-/// A page shown as a document: one editable text view, with "Clear N done" below it.
+/// A page shown as a document: one editable text view, above the format bar.
 struct NotepadView<Below: View>: View {
   let state: AppState
   /// nil means the first page, made on the first save.
@@ -13,7 +13,6 @@ struct NotepadView<Below: View>: View {
   /// Scrolls with the page, above the format bar (the Suggested section).
   @ViewBuilder let below: Below
   @State private var handle = EditorHandle()
-  @State private var doneCount = 0
   @State private var kind = NoteKind.plain
 
   var body: some View {
@@ -22,8 +21,7 @@ struct NotepadView<Below: View>: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
           PageEditor(
-            state: state, page: category, lines: lines, handle: handle,
-            doneCountChanged: { doneCount = $0 })
+            state: state, page: category, lines: lines, handle: handle)
           below
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -34,7 +32,6 @@ struct NotepadView<Below: View>: View {
     { _ in
       kind = handle.kind
     }
-    .onChange(of: lines, initial: true) { doneCount = PageText.doneCount(lines: lines) }
     .background {
       Button("Focus page") { handle.focusEnd() }
         .keyboardShortcut(.space, modifiers: .option)
@@ -51,12 +48,6 @@ struct NotepadView<Below: View>: View {
       formatButton("list.bullet", .bullet, label: "Bullet")
       formatButton("textformat.size", .heading, label: "Heading")
       Spacer()
-      if doneCount > 0 {
-        Button("Clear \(doneCount) done") { handle.clearDone() }
-          .buttonStyle(.plain)
-          .font(.mono(11))
-          .foregroundStyle(.secondary)
-      }
     }
   }
 

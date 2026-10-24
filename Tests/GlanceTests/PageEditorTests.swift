@@ -180,6 +180,57 @@ struct PageEditorMergeTests {
   }
 }
 
+struct HiddenDoneTests {
+  private let file = ["### h", "- [ ] a", "- [x] done1", "  - [x] done2", "- [ ] b", "- [x] done1"]
+
+  private func save(_ edited: [String]) -> [String] {
+    PageEditor.merged(current: file, base: PageText.visible(file), edited: edited)
+  }
+
+  @Test func theEditorShowsOnlyLinesThatAreNotCrossedOut() {
+    #expect(PageText.visible(file) == ["### h", "- [ ] a", "- [ ] b"])
+  }
+
+  @Test func aSaveKeepsEveryHiddenLineInPlace() {
+    #expect(save(PageText.visible(file)) == file)
+  }
+
+  @Test func editsAroundHiddenLinesKeepThem() {
+    let out = save(["### h", "- [ ] a2", "- [ ] b", "- [ ] new"])
+    #expect(out.filter { $0 == "- [x] done1" }.count == 2)
+    #expect(out.contains("  - [x] done2"))
+  }
+
+  @Test func indentingAVisibleLineKeepsHiddenLines() {
+    let out = save(["### h", "  - [ ] a", "- [ ] b"])
+    #expect(
+      out == ["### h", "  - [ ] a", "- [x] done1", "  - [x] done2", "- [ ] b", "- [x] done1"])
+  }
+
+  @Test func emptyingTheEditorKeepsHiddenLines() {
+    #expect(save([]) == ["- [x] done1", "  - [x] done2", "- [x] done1"])
+  }
+
+  @Test func aLineMcpAddedAndHiddenLinesBothSurvive() {
+    let current = file + ["- [ ] from claude"]
+    let out = PageEditor.merged(
+      current: current, base: PageText.visible(file), edited: PageText.visible(file))
+    #expect(out == current)
+  }
+
+  @Test func aCrossedOutLineStillShownCanBeDeletedByTheUser() {
+    let shown = ["- [ ] a", "- [x] mis"]
+    #expect(PageEditor.merged(current: shown, base: shown, edited: ["- [ ] a"]) == ["- [ ] a"])
+  }
+
+  @Test func uncheckingAShownLineKeepsItAsATodo() {
+    let out = PageEditor.merged(
+      current: ["- [ ] a", "- [x] mis", "- [x] old"], base: ["- [ ] a", "- [x] mis"],
+      edited: ["- [ ] a", "- [ ] mis"])
+    #expect(out == ["- [ ] a", "- [ ] mis", "- [x] old"])
+  }
+}
+
 struct IndentedDoneTests {
   @Test func indentedCrossedOutLinesCountAsDone() {
     #expect(PageText.doneCount(lines: ["- [x] a", "  - [x] b", "    - [ ] c", "  - d"]) == 2)

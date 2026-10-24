@@ -119,6 +119,9 @@ enum PageText {
     return text
   }
 
+  /// What the editor shows: crossed-out lines live only in the file and the Completed tab.
+  static func visible(_ lines: [String]) -> [String] { lines.filter { !isDone($0) } }
+
   static func doneCount(lines: [String]) -> Int { lines.count(where: isDone) }
 
   /// A crossed-out checklist line at any indent.

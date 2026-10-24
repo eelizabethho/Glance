@@ -14,8 +14,6 @@ final class EditorHandle {
     view.scrollRangeToVisible(view.selectedRange())
   }
 
-  func clearDone() { view?.removeDone() }
-
   var kind: NoteKind { view?.currentKind ?? .plain }
 
   /// Sets the current line's kind; a line already of that kind goes back to plain.
@@ -34,14 +32,13 @@ struct PageEditor: NSViewRepresentable {
   /// The page in the document, shown whenever the user isn't editing.
   let lines: [String]
   let handle: EditorHandle
-  let doneCountChanged: (Int) -> Void
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
 
   func makeNSView(context: Context) -> NotesTextView {
     let view = NotesTextView.make()
-    view.load(lines: lines)
-    context.coordinator.base = PageText.shown(lines)
+    view.load(lines: PageText.visible(lines))
+    context.coordinator.base = PageText.shown(PageText.visible(lines))
     view.onEdit = { [coordinator = context.coordinator] in coordinator.edited() }
     view.onResign = { [coordinator = context.coordinator] in coordinator.flush() }
     context.coordinator.view = view
@@ -80,6 +77,24 @@ struct PageEditor: NSViewRepresentable {
     }
   }
 
+  /// `edited` with the lines of `current` that it lacks put back after the line that preceded them
+  /// in the file, so a crossed-out line hidden from the editor, or one MCP added, is never lost.
+  static func merged(current: [String], base: [String], edited: [String]) -> [String] {
+    var pending = added(current: current, base: base, edited: edited)[...]
+    var unused = Array(edited.indices)
+    var inserts: [Int: [String]] = [:]
+    var after = -1
+    for line in current {
+      if line == pending.first {
+        inserts[after, default: []].append(pending.removeFirst())
+      } else if let slot = unused.firstIndex(where: { edited[$0] == line }) {
+        after = unused.remove(at: slot)
+      }
+    }
+    return inserts[-1, default: []]
+      + edited.indices.flatMap { [edited[$0]] + inserts[$0, default: []] }
+  }
+
   final class Coordinator {
     var parent: PageEditor
     weak var view: NotesTextView?
@@ -89,6 +104,8 @@ struct PageEditor: NSViewRepresentable {
     var base: [String] = []
     /// The one pending save; nothing runs while idle.
     private var pending: Task<Void, Never>?
+    /// The one pending hide of crossed-out lines; nothing runs while idle.
+    private var hiding: Task<Void, Never>?
 
     init(_ parent: PageEditor) {
       self.parent = parent
@@ -106,7 +123,22 @@ struct PageEditor: NSViewRepresentable {
         try? await Task.sleep(for: .milliseconds(500))
         if !Task.isCancelled { self?.flush() }
       }
-      if let view { parent.doneCountChanged(view.doneCount) }
+      if hiding == nil, let view, view.doneCount > 0 {
+        // A crossed-out line stays for a moment so a mis-click can be undone.
+        hiding = Task { @MainActor [weak self] in
+          try? await Task.sleep(for: .seconds(2))
+          if !Task.isCancelled { self?.hideDone() }
+        }
+      }
+    }
+
+    private func hideDone() {
+      hiding = nil
+      flush()
+      guard let view else { return }
+      // The file keeps these lines; the next save puts them back after the lines they follow.
+      base = base.filter { !PageText.isDone($0) }
+      view.removeDone()
     }
 
     func flush() {
@@ -129,14 +161,19 @@ struct PageEditor: NSViewRepresentable {
           Task { @MainActor in self.save(lines, to: old, base: oldBase) }
         }
         page = new.page
-        view.load(lines: new.lines)
-        base = PageText.shown(new.lines)
-      } else if !unsaved, view.window?.firstResponder !== view,
-        view.lines != PageText.shown(new.lines)
+        hiding?.cancel()
+        hiding = nil
+        reload(PageText.visible(new.lines))
+      } else if !unsaved, hiding == nil, view.window?.firstResponder !== view,
+        view.lines != PageText.shown(PageText.visible(new.lines))
       {
-        view.load(lines: new.lines)
-        base = PageText.shown(new.lines)
+        reload(PageText.visible(new.lines))
       }
+    }
+
+    private func reload(_ lines: [String]) {
+      view?.load(lines: lines)
+      base = PageText.shown(lines)
     }
 
     /// Merges against the file as it is at write time, so a line MCP just added is kept, not overwritten.
@@ -146,13 +183,16 @@ struct PageEditor: NSViewRepresentable {
       parent.state.perform { doc in
         let current = PageText.shown(doc.bodyLines(of: name))
         added = PageEditor.added(current: current, base: base, edited: lines)
-        guard current != lines + added else { return }
+        let merged = PageEditor.merged(current: current, base: base, edited: lines)
+        guard current != merged else { return }
         if !doc.categories.contains(where: { $0.name == name }) { try doc.addCategory(name) }
-        try doc.replaceBody(of: name, with: lines + added)
+        try doc.replaceBody(of: name, with: merged)
       }
       guard page == self.page else { return }
-      self.base = lines + added
-      view?.append(lines: added)
+      // Crossed-out lines stay hidden; everything else another writer added shows up.
+      let shown = PageText.visible(added)
+      self.base = lines + shown
+      view?.append(lines: shown)
     }
   }
 }
