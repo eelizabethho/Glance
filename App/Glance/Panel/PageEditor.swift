@@ -38,7 +38,7 @@ struct PageEditor: NSViewRepresentable {
   func makeNSView(context: Context) -> NotesTextView {
     let view = NotesTextView.make()
     view.load(lines: PageText.visible(lines))
-    context.coordinator.base = PageText.shown(PageText.visible(lines))
+    context.coordinator.base = GlanceDocument.shown(PageText.visible(lines))
     view.onEdit = { [coordinator = context.coordinator] in coordinator.edited() }
     view.onResign = { [coordinator = context.coordinator] in coordinator.flush() }
     context.coordinator.view = view
@@ -65,46 +65,6 @@ struct PageEditor: NSViewRepresentable {
     layout.ensureLayout(for: container)
     // Tall enough that a click below the last line still lands in the editor.
     return CGSize(width: width, height: max(ceil(layout.usedRect(for: container).height), 160))
-  }
-
-  /// Lines another writer added since `base` that the editor doesn't already have, in file order.
-  static func added(current: [String], base: [String], edited: [String]) -> [String] {
-    var known = base + edited
-    return current.filter { line in
-      guard let index = known.firstIndex(of: line) else { return true }
-      known.remove(at: index)
-      return false
-    }
-  }
-
-  /// `edited` with the lines of `current` that it lacks put back after the line that preceded them
-  /// in the file, so a crossed-out line hidden from the editor, or one MCP added, is never lost.
-  static func merged(current: [String], base: [String], edited: [String]) -> [String] {
-    var pending = added(current: current, base: base, edited: edited)[...]
-    var unused = Array(edited.indices)
-    var inserts: [Int: [String]] = [:]
-    var after = -1
-    for line in current {
-      if line == pending.first {
-        inserts[after, default: []].append(pending.removeFirst())
-      } else if let slot = unused.firstIndex(where: { edited[$0] == line }) {
-        after = unused.remove(at: slot)
-      } else if let next = unused.first(where: { $0 > after }) {
-        after = next  // an edited line (indented, reworded) most likely stands where it was
-      }
-    }
-    return inserts[-1, default: []]
-      + edited.indices.flatMap { [edited[$0]] + inserts[$0, default: []] }
-  }
-
-  /// A line just checked in the editor has no done date yet; Completed sorts by it.
-  static func stampDone(in page: String, of doc: inout GlanceDocument, today: CalendarDay) throws {
-    // Re-read after each stamp, since a stamp may change the line's id.
-    while let task = doc.categories.first(where: { $0.name == page })?.tasks.first(where: {
-      $0.kind == .checklist && $0.status == .completed && $0.doneAt == nil
-    }) {
-      try doc.setStatus(task.id, .completed, today: today)
-    }
   }
 
   final class Coordinator {
@@ -177,7 +137,7 @@ struct PageEditor: NSViewRepresentable {
         hiding = nil
         reload(PageText.visible(new.lines))
       } else if !unsaved, hiding == nil, view.window?.firstResponder !== view,
-        view.lines != PageText.shown(PageText.visible(new.lines))
+        view.lines != GlanceDocument.shown(PageText.visible(new.lines))
       {
         reload(PageText.visible(new.lines))
       }
@@ -185,21 +145,16 @@ struct PageEditor: NSViewRepresentable {
 
     private func reload(_ lines: [String]) {
       view?.load(lines: lines)
-      base = PageText.shown(lines)
+      base = GlanceDocument.shown(lines)
     }
 
     /// Merges against the file as it is at write time, so a line MCP just added is kept, not overwritten.
     private func save(_ lines: [String], to page: String?, base: [String]) {
-      let name = page ?? GlanceDocument.defaultCategory
       var added: [String] = []
       parent.state.perform { doc in
-        let current = PageText.shown(doc.bodyLines(of: name))
-        added = PageEditor.added(current: current, base: base, edited: lines)
-        let merged = PageEditor.merged(current: current, base: base, edited: lines)
-        guard current != merged else { return }
-        if !doc.categories.contains(where: { $0.name == name }) { try doc.addCategory(name) }
-        try doc.replaceBody(of: name, with: merged)
-        try PageEditor.stampDone(in: name, of: &doc, today: CalendarDay(.now, calendar: .current))
+        added = try doc.savePage(
+          page ?? GlanceDocument.defaultCategory, edited: lines, base: base,
+          today: CalendarDay(.now, calendar: .current))
       }
       guard page == self.page else { return }
       // Crossed-out lines stay hidden; everything else another writer added shows up.

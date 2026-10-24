@@ -5,6 +5,21 @@ import Testing
 @testable import Glance
 
 struct PageTextTests {
+  /// Core's `shown` must match what the editor actually round-trips to.
+  @Test func coreShownMatchesTheEditorsRoundTrip() {
+    let lines = [
+      "### work", "- [ ] a 📅 2026-10-26", "- [x] b ✅ 2026-10-21", "- [X] c", "- [-] d",
+      "  - [x] e ✅ 2026-10-21", "   - [X] odd", "- a bullet", "☐ typed", "• typed", "plain",
+      "", "  ", "  ### h", "### ", "- [", "- [/] pending",
+    ]
+    #expect(GlanceDocument.shown(lines) == PageText.lines(from: PageText.attributed(from: lines)))
+  }
+
+  @Test func theEditorShowsOnlyLinesThatAreNotCrossedOut() {
+    let file = ["### h", "- [ ] a", "- [x] done1", "  - [x] done2", "- [ ] b", "- [-] gone"]
+    #expect(PageText.visible(file) == ["### h", "- [ ] a", "- [ ] b"])
+  }
+
   @Test func markdownLinesSurviveAToAttributedAndBack() {
     let lines = [
       "### work", "- [ ] weekly report 📅 2026-10-26", "- [x] buy cases",
@@ -15,7 +30,6 @@ struct PageTextTests {
 
   @Test func theDoneStampIsHiddenOnScreen() {
     #expect(PageText.attributed(from: ["- [x] b ✅ 2026-10-21"]).string == "☑ b")
-    #expect(PageText.shown(["- [x] b ✅ 2026-10-21"]) == ["- [x] b"])
   }
 
   @Test func markersShowAsGlyphsAndHeadingsAreMarked() {
@@ -169,69 +183,6 @@ struct NotesTextViewTests {
   }
 }
 
-struct PageEditorMergeTests {
-  @Test func linesAnotherWriterAddedSurviveASave() {
-    let added = PageEditor.added(
-      current: ["- [ ] a", "- [ ] from claude"], base: ["- [ ] a"], edited: ["- [ ] a", "- [ ] b"])
-    #expect(added == ["- [ ] from claude"])
-  }
-
-  @Test func nothingIsAddedBackWhenOnlyTheEditorChanged() {
-    #expect(PageEditor.added(current: ["- [ ] a"], base: ["- [ ] a"], edited: []).isEmpty)
-  }
-}
-
-struct HiddenDoneTests {
-  private let file = ["### h", "- [ ] a", "- [x] done1", "  - [x] done2", "- [ ] b", "- [x] done1"]
-
-  private func save(_ edited: [String]) -> [String] {
-    PageEditor.merged(current: file, base: PageText.visible(file), edited: edited)
-  }
-
-  @Test func theEditorShowsOnlyLinesThatAreNotCrossedOut() {
-    #expect(PageText.visible(file) == ["### h", "- [ ] a", "- [ ] b"])
-  }
-
-  @Test func aSaveKeepsEveryHiddenLineInPlace() {
-    #expect(save(PageText.visible(file)) == file)
-  }
-
-  @Test func editsAroundHiddenLinesKeepThem() {
-    let out = save(["### h", "- [ ] a2", "- [ ] b", "- [ ] new"])
-    #expect(out.filter { $0 == "- [x] done1" }.count == 2)
-    #expect(out.contains("  - [x] done2"))
-  }
-
-  @Test func indentingAVisibleLineKeepsHiddenLines() {
-    let out = save(["### h", "  - [ ] a", "- [ ] b"])
-    #expect(
-      out == ["### h", "  - [ ] a", "- [x] done1", "  - [x] done2", "- [ ] b", "- [x] done1"])
-  }
-
-  @Test func emptyingTheEditorKeepsHiddenLines() {
-    #expect(save([]) == ["- [x] done1", "  - [x] done2", "- [x] done1"])
-  }
-
-  @Test func aLineMcpAddedAndHiddenLinesBothSurvive() {
-    let current = file + ["- [ ] from claude"]
-    let out = PageEditor.merged(
-      current: current, base: PageText.visible(file), edited: PageText.visible(file))
-    #expect(out == current)
-  }
-
-  @Test func aCrossedOutLineStillShownCanBeDeletedByTheUser() {
-    let shown = ["- [ ] a", "- [x] mis"]
-    #expect(PageEditor.merged(current: shown, base: shown, edited: ["- [ ] a"]) == ["- [ ] a"])
-  }
-
-  @Test func uncheckingAShownLineKeepsItAsATodo() {
-    let out = PageEditor.merged(
-      current: ["- [ ] a", "- [x] mis", "- [x] old"], base: ["- [ ] a", "- [x] mis"],
-      edited: ["- [ ] a", "- [ ] mis"])
-    #expect(out == ["- [ ] a", "- [ ] mis", "- [x] old"])
-  }
-}
-
 struct IndentedDoneTests {
   @Test func indentedCrossedOutLinesCountAsDone() {
     #expect(PageText.doneCount(lines: ["- [x] a", "  - [x] b", "    - [ ] c", "  - d"]) == 2)
@@ -249,14 +200,5 @@ struct IndentedDoneTests {
     #expect(
       view.selectedRange()
         == NSRange(location: (view.string as NSString).range(of: "typing").location + 3, length: 0))
-  }
-}
-
-struct StampDoneTests {
-  @Test func aLineCheckedInTheEditorGetsTodaysDoneDate() throws {
-    var doc = MarkdownParser.parse("## p\n- [x] a\n- [x] b ✅ 2026-10-01\n- [ ] c\n")
-    let today = CalendarDay(Date(timeIntervalSince1970: 1_792_000_000))
-    try PageEditor.stampDone(in: "p", of: &doc, today: today)
-    #expect(doc.bodyLines(of: "p") == ["- [x] a ✅ \(today)", "- [x] b ✅ 2026-10-01", "- [ ] c"])
   }
 }

@@ -57,9 +57,6 @@ enum PageText {
 
   private static let doneStamp = /\ ✅ \d{4}-\d{2}-\d{2}/
 
-  /// `lines` as the editor shows and saves them, so a reload or save compares like with like.
-  static func shown(_ lines: [String]) -> [String] { Self.lines(from: attributed(from: lines)) }
-
   /// Leading pairs of spaces become the indent attribute. A line that would change meaning
   /// without them (blank, or a `### ` that stayed plain text) keeps its spaces as text.
   private static func splitIndent(_ line: String) -> (level: Int, rest: String) {

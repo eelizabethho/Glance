@@ -1,4 +1,5 @@
 import AppKit
+import GlanceCore
 import Testing
 
 @testable import Glance
@@ -12,7 +13,7 @@ struct IndentTextTests {
     #expect(text.attribute(.glanceIndent, at: 4, effectiveRange: nil) as? Int == 1)
     let style = text.attribute(.paragraphStyle, at: 4, effectiveRange: nil) as? NSParagraphStyle
     #expect(style?.firstLineHeadIndent == 20)
-    #expect(PageText.shown(lines) == lines)
+    #expect(GlanceDocument.shown(lines) == lines)
   }
 }
 
