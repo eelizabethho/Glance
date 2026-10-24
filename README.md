@@ -3,6 +3,10 @@
 **A tiny notepad that floats on your Mac.** Click the orb, jot something down, click again and it's gone. Your notes are a plain Markdown file that never leaves your computer.
 
 <p align="center">
+  <img src="assets/demo.gif" width="300" alt="Glance demo: the floating orb opens a to-do panel, pins on screen, and Claude adds a task to it from chat">
+</p>
+
+<p align="center">
   <img src="assets/panel-light.png" width="360" alt="Glance panel in light mode">
   &nbsp;
   <img src="assets/panel-dark.png" width="360" alt="Glance panel in dark mode">
