@@ -64,7 +64,8 @@ private func save(_ edited: [String], over lines: [String] = file, base: [String
 
 @Test func `unchecking a shown line keeps it as a todo`() throws {
   let out = try save(
-    ["- [ ] a", "- [ ] mis"], over: ["- [ ] a", "- [x] mis ✅ 2026-10-22", "- [x] old ✅ 2026-10-01"],
+    ["- [ ] a", "- [ ] mis"],
+    over: ["- [ ] a", "- [x] mis ✅ 2026-10-22", "- [x] old ✅ 2026-10-01"],
     base: ["- [ ] a", "- [x] mis"])
   #expect(out.lines == ["- [ ] a", "- [ ] mis", "- [x] old ✅ 2026-10-01"])
 }

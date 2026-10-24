@@ -34,7 +34,8 @@ extension GlanceDocument {
     let level = min(line.prefix { $0 == " " }.count / 2, GlanceTask.maxIndent)
     let (pad, rest) = (line.prefix(level * 2), line.dropFirst(level * 2))
     for done in ["- [x] ", "- [X] ", "- [-] "] where rest.hasPrefix(done) {
-      return pad + "- [x] " + rest.dropFirst(done.count).replacing(/\ ✅ \d{4}-\d{2}-\d{2}/, with: "")
+      let text = rest.dropFirst(done.count).replacing(/\ ✅ \d{4}-\d{2}-\d{2}/, with: "")
+      return pad + "- [x] " + text
     }
     for (glyph, markdown) in [("☐ ", "- [ ] "), ("☑ ", "- [x] "), ("• ", "- ")]
     where rest.hasPrefix(glyph) {

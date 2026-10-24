@@ -56,7 +56,7 @@ private let text = """
   #expect(throws: TaskOpsError.categoryNotFound("zz")) { try doc.replaceBody(of: "zz", with: []) }
 }
 
-@Test func `replaceBody keeps a cancelled line cancelled when the editor saves it as checked`() throws {
+@Test func `replaceBody keeps a cancelled line cancelled when saved as checked`() throws {
   var doc = MarkdownParser.parse("## a\n- [-] dropped\n- [ ] keep\n")
   try doc.replaceBody(of: "a", with: ["- [x] dropped", "- [ ] keep", "- [ ] new"])
   #expect(doc.task(named: "dropped")?.status == .cancelled)
