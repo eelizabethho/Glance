@@ -7,8 +7,10 @@ extension Font {
   }
 }
 
-/// The page row shows once there is more than one page.
-func showsPageRow(pageCount: Int) -> Bool { pageCount > 1 }
+/// The page row shows once there is more than one tab: two pages, or a page and Completed.
+func showsPageRow(pageCount: Int, showCompleted: Bool) -> Bool {
+  pageCount + (pageCount > 0 && showCompleted ? 1 : 0) > 1
+}
 
 /// How solid the panel is: 0 is clear glass, 1 is a solid fill.
 enum PanelOpacity {
@@ -22,6 +24,8 @@ struct PanelView: View {
   @Environment(\.openSettings) private var openSettings
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @AppStorage("selectedPage") private var selectedPage = ""
+  @AppStorage("showCompleted") private var showCompleted = true
+  @State private var onCompleted = false
   @AppStorage(PanelOpacity.key) private var opacity = PanelOpacity.fallback
   @State private var showSlider = false
   /// Non-nil while the "new page" field is open.
@@ -35,14 +39,18 @@ struct PanelView: View {
       header
       if showSlider { slider }
       if newName != nil { newPageField }
-      if showsPageRow(pageCount: pages.count) { pageRow }
-      NotepadView(
-        state: state, category: current, lines: state.document.bodyLines(of: current ?? "")
-      ) {
-        let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
-        if !suggestions.isEmpty {
-          SuggestedSection(
-            state: state, tasks: suggestions, defaultCategory: current, categories: pages)
+      if showsPageRow(pageCount: pages.count, showCompleted: showCompleted) { pageRow }
+      if onCompleted && showCompleted {
+        CompletedView(state: state)
+      } else {
+        NotepadView(
+          state: state, category: current, lines: state.document.bodyLines(of: current ?? "")
+        ) {
+          let suggestions = state.document.categories.first { $0.isSuggested }?.tasks ?? []
+          if !suggestions.isEmpty {
+            SuggestedSection(
+              state: state, tasks: suggestions, defaultCategory: current, categories: pages)
+          }
         }
       }
       if let error = state.lastError, error as? TaskOpsError != .emptyText {
@@ -116,7 +124,7 @@ struct PanelView: View {
       }
       HStack(spacing: 10) {
         Spacer()
-        if !showsPageRow(pageCount: pages.count) { addPage }
+        if !showsPageRow(pageCount: pages.count, showCompleted: showCompleted) { addPage }
         headerButton("circle.lefthalf.filled", "Transparency") { showSlider.toggle() }
         headerButton("gearshape", "Settings") {
           NSApp.activate()
@@ -134,10 +142,19 @@ struct PanelView: View {
         HStack(spacing: 0) {
           ForEach(pages, id: \.self) { page in
             PageCapsule(
-              page: page, selected: page == current, renaming: $renaming,
+              page: page, selected: page == current && !(onCompleted && showCompleted),
+              renaming: $renaming,
               hasLines: !(state.document.bodyLines(of: page).isEmpty),
-              select: { selectedPage = page }, commitRename: commitRename,
+              select: {
+                selectedPage = page
+                onCompleted = false
+              }, commitRename: commitRename,
               delete: { state.perform { try $0.removeCategory(page) } })
+          }
+          if showCompleted {
+            CompletedCapsule(selected: onCompleted, select: { onCompleted = true }) {
+              showCompleted = false
+            }
           }
         }
         .padding(2)
@@ -145,6 +162,38 @@ struct PanelView: View {
         addPage
       }
     }
+  }
+}
+
+/// The built-in Completed tab at the end of the row. Hover for ✕, which only hides the tab.
+private struct CompletedCapsule: View {
+  let selected: Bool
+  let select: () -> Void
+  let hide: () -> Void
+  @State private var hovering = false
+
+  var body: some View {
+    HStack(spacing: 4) {
+      Button("Completed", action: select).buttonStyle(.plain).lineLimit(1)
+      if hovering {
+        Button(action: hide) { Image(systemName: "xmark") }
+          .buttonStyle(.plain)
+          .accessibilityLabel("Hide Completed tab")
+          .help("Hide tab (Settings brings it back)")
+      }
+    }
+    .font(.mono(11))
+    .foregroundStyle(selected ? Color.black : Color.secondary)
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .background {
+      if selected {
+        Capsule().fill(Color.white.opacity(0.9))
+          .shadow(color: .black.opacity(0.1), radius: 1, y: 0.5)
+      }
+    }
+    .onHover { hovering = $0 }
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }
 

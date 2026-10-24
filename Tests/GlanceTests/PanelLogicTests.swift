@@ -53,9 +53,10 @@ struct PanelLogicTests {
 
 struct PageRowTests {
   @Test func rowShowsOnlyWithMoreThanOnePage() {
-    #expect(!showsPageRow(pageCount: 0))
-    #expect(!showsPageRow(pageCount: 1))
-    #expect(showsPageRow(pageCount: 2))
+    #expect(!showsPageRow(pageCount: 0, showCompleted: true))
+    #expect(!showsPageRow(pageCount: 1, showCompleted: false))
+    #expect(showsPageRow(pageCount: 1, showCompleted: true))
+    #expect(showsPageRow(pageCount: 2, showCompleted: false))
   }
 
   @Test func panelStartsMostlySolid() {
