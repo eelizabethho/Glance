@@ -89,6 +89,8 @@ struct PageEditor: NSViewRepresentable {
         inserts[after, default: []].append(pending.removeFirst())
       } else if let slot = unused.firstIndex(where: { edited[$0] == line }) {
         after = unused.remove(at: slot)
+      } else if let next = unused.first(where: { $0 > after }) {
+        after = next  // an edited line (indented, reworded) most likely stands where it was
       }
     }
     return inserts[-1, default: []]

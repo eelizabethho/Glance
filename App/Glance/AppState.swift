@@ -60,8 +60,7 @@ import Observation
   var todoCount: Int {
     document.categories.filter { !$0.isSuggested }.flatMap { document.bodyLines(of: $0.name) }
       .filter { line in
-        !line.allSatisfy(\.isWhitespace) && !line.hasPrefix("### ")
-          && !["- [x] ", "- [X] ", "- [-] "].contains { line.hasPrefix($0) }
+        !line.allSatisfy(\.isWhitespace) && !line.hasPrefix("### ") && !PageText.isDone(line)
       }.count
   }
   var dueCount: Int { Counts.dueTodayOrOverdue(document, now: now) }

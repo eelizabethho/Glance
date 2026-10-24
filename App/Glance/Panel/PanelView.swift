@@ -152,9 +152,9 @@ struct PanelView: View {
               delete: { state.perform { try $0.removeCategory(page) } })
           }
           if showCompleted {
-            CompletedCapsule(selected: onCompleted, select: { onCompleted = true }) {
-              showCompleted = false
-            }
+            CompletedCapsule(
+              selected: onCompleted, select: { onCompleted = true },
+              hide: { showCompleted = false })
           }
         }
         .padding(2)

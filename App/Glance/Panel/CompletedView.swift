@@ -13,12 +13,12 @@ func completedItems(_ document: GlanceDocument) -> [CompletedItem] {
     category.tasks.filter { $0.kind == .checklist && $0.status.isCrossedOut }
       .map { CompletedItem(task: $0, page: category.name) }
   }
-  return items.enumerated().sorted { a, b in
-    switch (a.element.task.doneAt, b.element.task.doneAt) {
-    case (let x?, let y?) where x != y: x > y
+  return items.enumerated().sorted { lhs, rhs in
+    switch (lhs.element.task.doneAt, rhs.element.task.doneAt) {
+    case (let left?, let right?) where left != right: left > right
     case (_?, nil): true
     case (nil, _?): false
-    default: a.offset < b.offset
+    default: lhs.offset < rhs.offset
     }
   }.map(\.element)
 }
