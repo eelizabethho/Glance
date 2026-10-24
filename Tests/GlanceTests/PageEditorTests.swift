@@ -236,3 +236,17 @@ struct IndentedDoneTests {
     #expect(PageText.doneCount(lines: ["- [x] a", "  - [x] b", "    - [ ] c", "  - d"]) == 2)
   }
 }
+
+@MainActor struct RemoveDoneCursorTests {
+  @Test func theCursorStaysOnItsLineWhenDoneLinesVanish() {
+    let view = NotesTextView.make()
+    view.load(lines: ["- [x] a", "- [ ] typing here", "- [x] b"])
+    let line = (view.string as NSString).range(of: "typing")
+    view.setSelectedRange(NSRange(location: line.location + 3, length: 0))
+    view.removeDone()
+    #expect(view.string == "☐ typing here")
+    #expect(
+      view.selectedRange()
+        == NSRange(location: (view.string as NSString).range(of: "typing").location + 3, length: 0))
+  }
+}

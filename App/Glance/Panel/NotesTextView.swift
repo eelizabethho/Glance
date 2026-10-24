@@ -195,10 +195,24 @@ final class NotesTextView: NSTextView {
 
   /// Removes every crossed-out line.
   func removeDone() {
-    let kept = lines.filter { !PageText.isDone($0) }
-    let all = NSRange(location: 0, length: (string as NSString).length)
-    guard replace(all, with: PageText.attributed(from: kept)) else { return }
-    setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
+    let all = lines
+    let kept = all.filter { !PageText.isDone($0) }
+    guard kept.count != all.count else { return }
+    // Keep the cursor on the line it was in (or the next kept one), not at the end of the page.
+    let text = string as NSString
+    let cursor = selectedRange().location
+    let row = text.substring(to: min(cursor, text.length)).count { $0 == "\n" }
+    let column = cursor - paragraph(at: cursor).start
+    let removedRow = row < all.count && PageText.isDone(all[row])
+    let newRow = all.prefix(row).count { !PageText.isDone($0) }
+    guard replace(NSRange(location: 0, length: text.length), with: PageText.attributed(from: kept))
+    else { return }
+    let paragraphs = string.components(separatedBy: "\n")
+    let start = paragraphs.prefix(newRow).reduce(0) { $0 + ($1 as NSString).length + 1 }
+    let offset =
+      removedRow || newRow >= paragraphs.count
+      ? 0 : min(column, (paragraphs[newRow] as NSString).length)
+    setSelectedRange(NSRange(location: min(start + offset, (string as NSString).length), length: 0))
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
