@@ -122,7 +122,11 @@ extension GlanceDocument {
           let previous = old.remove(at: match)
           task.notes = previous.notes
           task.suggestion = task.suggestion ?? previous.suggestion
-          if task.status.isCrossedOut { task.doneAt = task.doneAt ?? previous.doneAt }
+          // The editor shows cancelled as ☑ and saves it as [x], so a crossed-out line keeps its old status.
+          if task.status.isCrossedOut, previous.status.isCrossedOut {
+            task.status = previous.status
+            task.doneAt = task.doneAt ?? previous.doneAt
+          }
         }
         return .task(task)
       }
