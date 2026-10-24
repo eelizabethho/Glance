@@ -4,6 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 config="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+todo="$HOME/Documents/Glance/todo.md"
+legacy="$HOME/workspace/notes-reminder/data/todo.md"
+[ -f "$legacy" ] && todo="$legacy"
 app=/Applications/Glance.app
 yes=0
 while [ $# -gt 0 ]; do
@@ -16,7 +19,7 @@ while [ $# -gt 0 ]; do
 done
 
 new=$(/usr/bin/python3 -I scripts/merge_mcp_config.py "$config" \
-  "$app/Contents/MacOS/glance-mcp" "$HOME/workspace/notes-reminder/data/todo.md")
+  "$app/Contents/MacOS/glance-mcp" "$todo")
 
 old=/dev/null
 [ -f "$config" ] && old=$config

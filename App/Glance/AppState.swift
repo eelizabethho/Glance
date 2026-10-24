@@ -4,7 +4,12 @@ import Observation
 
 /// The app's one view of `todo.md`. Every edit goes through `perform`.
 @Observable final class AppState {
-  static let defaultURL = URL.homeDirectory.appending(path: "workspace/notes-reminder/data/todo.md")
+  /// `~/Documents/Glance/todo.md`, unless a list already lives at the original development path.
+  static let defaultURL: URL = {
+    let legacy = URL.homeDirectory.appending(path: "workspace/notes-reminder/data/todo.md")
+    if FileManager.default.fileExists(atPath: legacy.path) { return legacy }
+    return URL.homeDirectory.appending(path: "Documents/Glance/todo.md")
+  }()
 
   private(set) var document: GlanceDocument
   private(set) var lastError: (any Error)?
