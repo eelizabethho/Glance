@@ -76,3 +76,7 @@ The code is split into `Sources/GlanceCore` (the Markdown parser, serializer, an
 ## Privacy
 
 Glance has no accounts, no analytics, no telemetry, and no network code. Your notes stay in a file on your Mac.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

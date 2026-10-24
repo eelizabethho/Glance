@@ -1,6 +1,6 @@
 name: Glance
 options:
-  bundleIdPrefix: com.eelizabethho
+  bundleIdPrefix: app.glance
   deploymentTarget:
     macOS: "26.0"
 packages:

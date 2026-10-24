@@ -6,7 +6,7 @@ import os
 /// Keeps the system's pending notifications equal to `reminderPlan` of the file.
 @MainActor final class Reminders {
   private static let prefix = "glance."
-  private let log = Logger(subsystem: "com.eelizabethho.Glance", category: "reminders")
+  private let log = Logger(subsystem: "app.glance.Glance", category: "reminders")
   private var task: Task<Void, Never>?
   private var asked = false
 

@@ -3,7 +3,7 @@ import os
 
 /// A global ⌥Space shortcut. Carbon hot keys need no Accessibility permission.
 final class HotKey {
-  private static let log = Logger(subsystem: "com.eelizabethho.Glance", category: "hotkey")
+  private static let log = Logger(subsystem: "app.glance.Glance", category: "hotkey")
   private var ref: EventHotKeyRef?
   private let onPress: () -> Void
 
