@@ -1,5 +1,10 @@
 # Glance
 
+[![CI](https://github.com/eelizabethho/notes-reminder/actions/workflows/ci.yml/badge.svg)](https://github.com/eelizabethho/notes-reminder/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/eelizabethho/notes-reminder)](https://github.com/eelizabethho/notes-reminder/releases/latest)
+![macOS 26+](https://img.shields.io/badge/macOS-26%2B-black)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 **A tiny notepad that floats on your Mac.** Click the orb, jot something down, click again and it's gone. Your notes are a plain Markdown file that never leaves your computer.
 
 <p align="center">
@@ -12,7 +17,13 @@
   <img src="assets/panel-dark.png" width="360" alt="Glance panel in dark mode">
 </p>
 
-## Why Glance
+## The problem
+
+To-do apps live in a window you forget to open, so the list goes stale. And every time you plan something with your AI, you copy the tasks out by hand.
+
+Glance is a list you can't lose: a small orb on top of everything that you check at a glance, and that Claude can add to straight from chat.
+
+## Features
 
 - **Always one click away.** A small glass orb sits on top of every app and every Space. It shows how many things you still have open. Drag it anywhere and it stays there.
 - **Types like Apple Notes.** Every page is one real text editor. Return continues a list, Tab and Shift-Tab indent, Backspace joins lines, and ⌘Z undoes.
